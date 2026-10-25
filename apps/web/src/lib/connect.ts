@@ -103,6 +103,8 @@ export async function connectWaba(
 
   await syncTemplates(record.id);
   await setupTemplates(record.id);
+  // The number details above were read before registration; store its status as it is now.
+  await refreshNumbers(record.id).catch((err) => console.error('Number refresh failed', err));
   return record;
 }
 
