@@ -13,6 +13,8 @@ function keys() {
   return { id, secret };
 }
 
+const basicAuth = (id: string, secret: string) => `Basic ${Buffer.from(`${id}:${secret}`).toString('base64')}`;
+
 /** The customer pays the credit plus 18% GST; the wallet receives the credit. */
 export async function createRechargeOrder(orgId: string, amountRupees: string) {
   const { id, secret } = keys();
@@ -24,7 +26,7 @@ export async function createRechargeOrder(orgId: string, amountRupees: string) {
   const response = await fetch('https://api.razorpay.com/v1/orders', {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString('base64')}`,
+      Authorization: basicAuth(id, secret),
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ amount: toPaiseCeil(credit + gst), currency: 'INR', notes: { orgId } }),
@@ -68,21 +70,32 @@ export async function confirmRecharge(orgId: string, payment: { orderId: string;
   return creditPaidOrder(payment.orderId, payment.paymentId, orgId);
 }
 
+/** Asks Razorpay itself, so a leaked or guessed webhook secret can't add credit for an unpaid order. */
+async function orderIsPaid(orderId: string) {
+  const { id, secret } = keys();
+  const response = await fetch(`https://api.razorpay.com/v1/orders/${encodeURIComponent(orderId)}`, {
+    headers: { Authorization: basicAuth(id, secret) },
+  });
+  if (!response.ok) throw new Error(`Razorpay order lookup failed (${response.status})`);
+  return ((await response.json()) as { status?: string }).status === 'paid';
+}
+
 /**
  * Razorpay webhook (order.paid / payment.captured): credits payments whose buyer closed the page
  * before Razorpay sent them back. Returns the HTTP status to answer with.
  */
 export async function handleRazorpayWebhook(raw: string, signature: string | null) {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
-  if (!secret) return 503;
+  if (!secret || !rechargeEnabled()) return 503;
   if (!signatureMatches(raw, signature, secret)) return 401;
   const event = JSON.parse(raw);
   const payment = event.payload?.payment?.entity;
   if ((event.event === 'order.paid' || event.event === 'payment.captured') && payment?.order_id && payment?.id) {
-    // Orders we didn't create (other integrations on the same Razorpay account) are ignored.
-    await creditPaidOrder(payment.order_id, payment.id).catch((err) => {
-      if (!(err instanceof ApiError)) throw err;
-    });
+    // Orders we didn't create (other integrations on the same Razorpay account) and ones already credited are skipped.
+    const row = await prisma.payment.findUnique({ where: { razorpayOrderId: String(payment.order_id) } });
+    if (row?.status === 'CREATED' && (await orderIsPaid(row.razorpayOrderId))) {
+      await creditPaidOrder(row.razorpayOrderId, String(payment.id));
+    }
   }
   return 200;
 }
