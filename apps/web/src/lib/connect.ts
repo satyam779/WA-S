@@ -46,7 +46,9 @@ export async function connectWaba(
   if (taken && taken.orgId !== orgId) throw new ApiError(409, 'already_connected', 'This WhatsApp account is connected to another workspace');
 
   const meta = accessToken ? graphWithToken(accessToken) : graph();
-  if (!accessToken) {
+  // Accounts already assigned to our system user (such as our own business's) need no new assignment.
+  const alreadyAssigned = !accessToken && (await meta.getWaba(metaWabaId).then(() => true, () => false));
+  if (!accessToken && !alreadyAssigned) {
     try {
       await meta.assignSystemUser(metaWabaId, env.metaSystemUserId);
     } catch (err) {
