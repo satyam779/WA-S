@@ -57,7 +57,8 @@ Other commands:
 
 1. Create a project and save the database password. Keep it in the same region as the Vercel functions (`regions` in `apps/web/vercel.json`). Our project is in Mumbai, so the functions run in Mumbai (`bom1`).
 2. Click **Connect → ORMs → Prisma** and copy two connection strings:
-   - `DATABASE_URL`: the transaction pooler string (port 6543), ending in `?pgbouncer=true&connection_limit=5`. That's for Vercel. In your local `.env`, use the session pooler string (port 5432) plus `?connection_limit=5` instead: far from the database, it's about 4× faster per query.
+   - `DATABASE_URL`: the transaction pooler string (port 6543), ending in `?pgbouncer=true&connection_limit=5`. Use it everywhere, including Vercel.
+   - Optional, only in your local `.env`: `DATABASE_URL_LOCAL` = the session pooler string (port 5432) plus `?connection_limit=5`. From far away it's several times faster per query, and Vercel ignores it. Never use the session pooler as Vercel's `DATABASE_URL`: it allows only a few connections, and the live site fails under load.
    - `DIRECT_URL`: the session pooler string (port 5432).
 
 Nothing else is needed in Supabase. Each production deploy applies migrations, which also lock every table against Supabase's public Data API (row level security), and loads prices from `packages/db/prisma/seed.ts`.
