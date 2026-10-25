@@ -39,22 +39,50 @@ export async function createRechargeOrder(orgId: string, amountRupees: string) {
   return { keyId: id, orderId: order.id, amount: order.amount, label: `${formatRupees(credit)} + ${formatRupees(gst)} GST` };
 }
 
-/** Verifies Razorpay's checkout signature and credits the wallet exactly once per order. */
-export async function confirmRecharge(orgId: string, payment: { orderId: string; paymentId: string; signature: string }) {
-  const { secret } = keys();
-  const expected = createHmac('sha256', secret).update(`${payment.orderId}|${payment.paymentId}`).digest();
-  const given = Buffer.from(String(payment.signature ?? ''), 'hex');
-  if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
-    throw new ApiError(400, 'bad_signature', 'The payment could not be verified');
-  }
+const signatureMatches = (payload: string, signature: string | null | undefined, secret: string) => {
+  const expected = createHmac('sha256', secret).update(payload).digest();
+  const given = Buffer.from(String(signature ?? ''), 'hex');
+  return given.length === expected.length && timingSafeEqual(given, expected);
+};
+
+/** Marks an order paid and credits the wallet exactly once, however many times the payment is reported. */
+function creditPaidOrder(orderId: string, paymentId: string, orgId?: string) {
   return prisma.$transaction(async (tx) => {
-    const row = await tx.payment.findUnique({ where: { razorpayOrderId: payment.orderId } });
-    if (!row || row.orgId !== orgId) throw new ApiError(404, 'unknown_order', 'Payment not found');
+    const row = await tx.payment.findUnique({ where: { razorpayOrderId: orderId } });
+    if (!row || (orgId && row.orgId !== orgId)) throw new ApiError(404, 'unknown_order', 'Payment not found');
     const { count } = await tx.payment.updateMany({
       where: { id: row.id, status: 'CREATED' },
-      data: { status: 'PAID', razorpayPaymentId: payment.paymentId },
+      data: { status: 'PAID', razorpayPaymentId: paymentId },
     });
-    if (count) await creditWallet(orgId, Number(row.creditMicros), 'cash', `Recharge ${payment.paymentId}`, tx);
+    if (count) await creditWallet(row.orgId, Number(row.creditMicros), 'cash', `Recharge ${paymentId}`, tx);
     return formatRupees(Number(row.creditMicros));
   });
+}
+
+/** Verifies Razorpay's checkout signature when the buyer returns to the page. */
+export async function confirmRecharge(orgId: string, payment: { orderId: string; paymentId: string; signature: string }) {
+  const { secret } = keys();
+  if (!signatureMatches(`${payment.orderId}|${payment.paymentId}`, payment.signature, secret)) {
+    throw new ApiError(400, 'bad_signature', 'The payment could not be verified');
+  }
+  return creditPaidOrder(payment.orderId, payment.paymentId, orgId);
+}
+
+/**
+ * Razorpay webhook (order.paid / payment.captured): credits payments whose buyer closed the page
+ * before Razorpay sent them back. Returns the HTTP status to answer with.
+ */
+export async function handleRazorpayWebhook(raw: string, signature: string | null) {
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  if (!secret) return 503;
+  if (!signatureMatches(raw, signature, secret)) return 401;
+  const event = JSON.parse(raw);
+  const payment = event.payload?.payment?.entity;
+  if ((event.event === 'order.paid' || event.event === 'payment.captured') && payment?.order_id && payment?.id) {
+    // Orders we didn't create (other integrations on the same Razorpay account) are ignored.
+    await creditPaidOrder(payment.order_id, payment.id).catch((err) => {
+      if (!(err instanceof ApiError)) throw err;
+    });
+  }
+  return 200;
 }

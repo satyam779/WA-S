@@ -1,0 +1,23 @@
+name: CI
+
+# Typecheck and unit tests on every push and pull request. Vercel also refuses to deploy code that
+# doesn't type-check, so the live site keeps running the last good version.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @wa/db run generate
+      - run: pnpm typecheck
+      - run: pnpm test

@@ -49,8 +49,13 @@ export function EmbeddedSignup({ appId, configId, version }: { appId: string; co
       (response) => {
         const code = response.authResponse?.code;
         if (!code) return setResult({ error: 'Facebook login was cancelled.' });
-        // The FINISH message can arrive just after this callback; the code stays valid for ~30s.
-        setTimeout(() => start(async () => setResult(await completeSignupAction({ code, ...session.current }))), 800);
+        // The FINISH message can arrive just after this callback. Wait up to 5s for it; the code stays valid for ~30s.
+        const startedAt = Date.now();
+        const finish = () => {
+          if (!session.current.phoneNumberId && Date.now() - startedAt < 5_000) return void setTimeout(finish, 200);
+          start(async () => setResult(await completeSignupAction({ code, ...session.current })));
+        };
+        finish();
       },
       {
         config_id: configId,

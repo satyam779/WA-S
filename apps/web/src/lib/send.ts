@@ -2,9 +2,20 @@ import { Prisma, prisma, type Message } from '@wa/db';
 import { InsufficientBalanceError, NoRateError, formatRupees } from '@wa/billing';
 import { META_ERROR, MetaApiError, bodyVariables, templateMessage, textMessage, type SendPayload } from '@wa/meta';
 import { parseMsisdn, type MessageCategory } from '@wa/shared';
+import { syncTemplates } from './connect';
 import { ApiError } from './errors';
 import { graphFor } from './meta';
 import { holdForMessage, priceFor, settleMessage } from './wallet';
+
+const lastSync = new Map<string, number>();
+
+/** Pulls template statuses from Meta, at most once a minute per account. Returns whether it ran. */
+async function resyncTemplates(wabaId: string) {
+  if (Date.now() - (lastSync.get(wabaId) ?? 0) < 60_000) return false;
+  lastSync.set(wabaId, Date.now());
+  await syncTemplates(wabaId).catch((err) => console.error('Template sync failed', err));
+  return true;
+}
 
 export interface SendInput {
   to: string;
@@ -34,7 +45,10 @@ export async function sendMessage(orgId: string, input: SendInput): Promise<Mess
   let payload: SendPayload;
   if (input.template) {
     const { name, language = 'en_US', variables = [], components } = input.template;
-    const template = await prisma.template.findUnique({ where: { wabaId_name_language: { wabaId: waba.id, name, language } } });
+    const find = () => prisma.template.findUnique({ where: { wabaId_name_language: { wabaId: waba.id, name, language } } });
+    let template = await find();
+    // A missed status webhook can leave a template looking pending or missing; ask Meta before refusing.
+    if (template?.status !== 'APPROVED' && (await resyncTemplates(waba.id))) template = await find();
     if (!template) throw new ApiError(404, 'template_not_found', `Template "${name}" (${language}) not found. Sync templates and retry.`);
     if (template.status !== 'APPROVED') throw new ApiError(422, 'template_not_approved', `Template "${name}" is ${template.status}`);
     category = template.category as MessageCategory;

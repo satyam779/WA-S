@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { prisma } from '@wa/db';
+import { Prisma, prisma } from '@wa/db';
 import { rupees } from '@wa/billing';
 import type { ActionResult } from '@/components/action-form';
 import { createSession, destroySession, forgetLogins } from '@/lib/auth';
@@ -11,6 +11,8 @@ import { BRAND, SITE, env } from '@/lib/env';
 import { creditWallet } from '@/lib/wallet';
 
 const field = (data: FormData, name: string) => String(data.get(name) ?? '').trim();
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 const MAX_FAILED_LOGINS = 10;
 const LOCK_MS = 15 * 60_000;
@@ -28,14 +30,23 @@ export async function signupAction(_: ActionResult, data: FormData): Promise<Act
   if (data.get('terms') !== 'on') return { error: 'Please accept the Terms and Privacy Policy' };
   if (await prisma.user.findUnique({ where: { email } })) return { error: 'An account with this email already exists. Log in instead.' };
 
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email,
-      passwordHash: await hashPassword(password),
-      org: { create: { name: company, wallet: { create: {} } } },
-    },
-  });
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash: await hashPassword(password),
+        org: { create: { name: company, wallet: { create: {} } } },
+      },
+    });
+  } catch (err) {
+    // Two signups with the same email at the same moment
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return { error: 'An account with this email already exists. Log in instead.' };
+    }
+    throw err;
+  }
   const bonus = rupees(env.signupBonusRupees);
   if (bonus > 0) await creditWallet(user.orgId, bonus, 'promo', 'Signup bonus');
   await createSession(user.id);
@@ -83,7 +94,7 @@ export async function requestResetAction(_: ActionResult, data: FormData): Promi
     await sendEmail(
       email,
       `Reset your ${BRAND} password`,
-      `<p>Hi ${user.name},</p><p>Click the link below to choose a new password. It works for 30 minutes.</p><p><a href="${link}">${link}</a></p><p>If you didn't ask for this, you can ignore this email.</p>`,
+      `<p>Hi ${escapeHtml(user.name)},</p><p>Click the link below to choose a new password. It works for 30 minutes.</p><p><a href="${link}">${link}</a></p><p>If you didn't ask for this, you can ignore this email.</p>`,
     );
   }
   // Same answer either way, so this form can't be used to find out who has an account.

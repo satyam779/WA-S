@@ -123,3 +123,27 @@ Recharge: customers pay the credit plus 18% GST, and the wallet receives the cre
 - Run it every 5 minutes instead, with either:
   - Vercel Pro: set the schedule to `*/5 * * * *`.
   - A free scheduler such as cron-job.org: call `https://your-domain/api/cron/tick` with the header above.
+
+## Go-live checklist
+
+When the app starts, its Vercel logs list any missing or wrong setting (look for `[config]`).
+
+1. **Vercel environment variables:** everything in `.env.example`.
+   - `DATABASE_URL` must be the transaction pooler (port 6543).
+   - Set `APP_URL`, `COMPANY_NAME` and `SUPPORT_EMAIL`.
+   - Leave out `META_GRAPH_BASE_URL`.
+   - Scope the database variables to **Production** only, so preview deployments never touch live data.
+2. **Meta:**
+   - Webhook callback: `https://your-domain/api/webhooks/meta`.
+   - Your domain in Embedded Signup's allowed domains.
+   - Privacy and Terms URLs in the app settings.
+   - Tech Provider App Review.
+3. **Razorpay:**
+   - Live keys.
+   - **Payment capture → Automatic**.
+   - A webhook to `https://your-domain/api/webhooks/razorpay` for `order.paid` and `payment.captured`, with its secret in `RAZORPAY_WEBHOOK_SECRET`. This credits payments even when the buyer closes the page before it returns.
+4. **Resend:** verify your domain and set `EMAIL_FROM`, so password reset emails arrive.
+5. **Background job:** every 5 minutes (see "Background job").
+6. **GitHub:** add the `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` secrets for the keep-alive job.
+7. **Before real customers:** Supabase Pro (no pausing, daily backups) and Vercel Pro (required for commercial use).
+8. **After each deploy:** sign up, connect WhatsApp, send a test OTP and recharge ₹100. Check that `https://your-domain/api/health` returns `{"ok":true}`.

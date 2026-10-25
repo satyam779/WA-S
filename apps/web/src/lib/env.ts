@@ -2,7 +2,10 @@ export const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME ?? 'WA Platform';
 
 /** Public details used on the website, in emails and in the legal pages. */
 export const SITE = {
-  url: (process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, ''),
+  url: (
+    process.env.APP_URL ??
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000')
+  ).replace(/\/$/, ''),
   company: process.env.COMPANY_NAME ?? BRAND,
   supportEmail: process.env.SUPPORT_EMAIL ?? 'support@example.com',
 };
