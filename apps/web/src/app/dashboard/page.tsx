@@ -140,6 +140,18 @@ export default async function HomePage() {
           <Suspense fallback={null}>
             <SendingBlockers phoneId={phone.id} />
           </Suspense>
+          {signup && (
+            <details className="mt-5 rounded-lg bg-slate-50 p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-700">Send from a different number</summary>
+              <div className="mt-3 space-y-3">
+                <p className="text-sm text-slate-600">
+                  Log in with Facebook and choose the business, WhatsApp account and number. Messages then go out from that number. We set up the
+                  ready-made messages there too, and Meta reviews them again.
+                </p>
+                <EmbeddedSignup appId={process.env.META_APP_ID!} configId={process.env.META_ES_CONFIG_ID!} version={env.metaGraphVersion} />
+              </div>
+            </details>
+          )}
         </section>
       ) : (
         <section id="connect" className="card mt-6 scroll-mt-6 space-y-4">
