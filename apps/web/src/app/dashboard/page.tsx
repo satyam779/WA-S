@@ -39,7 +39,9 @@ export default async function HomePage() {
     {
       done: approved > 0,
       title: 'Meta approves your messages',
-      text: waba ? `${approved} of ${waba.templates.length} ready-made messages approved. Usually takes a few minutes.` : 'Starts after you connect.',
+      text: waba
+        ? `${approved} of ${waba.templates.length} ready-made messages approved.${approved < waba.templates.length ? ' Meta can take up to 24 hours.' : ''}`
+        : 'Starts after you connect.',
       href: '/dashboard/templates',
       cta: 'Check',
     },

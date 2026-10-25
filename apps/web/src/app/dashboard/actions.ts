@@ -54,7 +54,7 @@ export async function completeSignupAction(input: { code: string; wabaId?: strin
       version: env.metaGraphVersion,
     });
     await connectWaba(orgId, input.wabaId, input.phoneNumberId, { accessToken });
-    return 'WhatsApp connected. Meta is reviewing your message templates; this usually takes a few minutes.';
+    return 'WhatsApp connected. Meta is reviewing your message templates; this can take up to 24 hours.';
   });
 }
 
@@ -121,7 +121,7 @@ export async function createTemplateAction(_: ActionResult, data: FormData) {
         components: components as Prisma.InputJsonValue,
       },
     });
-    return `Submitted to Meta (status: ${created.status}). Review usually takes a few minutes.`;
+    return `Submitted to Meta (status: ${created.status}). Review can take up to 24 hours.`;
   });
 }
 

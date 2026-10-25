@@ -30,7 +30,7 @@ export default async function TemplatesPage() {
         <div>
           <h2 className="text-lg font-bold">Create a template</h2>
           <p className="text-sm text-slate-500">
-            For promotions or any message we don’t provide ready-made. Meta reviews every template, usually within minutes.
+            For promotions or any message we don’t provide ready-made. Meta reviews every template, which can take up to 24 hours.
           </p>
         </div>
         <ActionForm action={createTemplateAction} submit="Submit for review" className="space-y-3">
