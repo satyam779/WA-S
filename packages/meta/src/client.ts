@@ -46,6 +46,19 @@ export interface SendResult {
   messages: { id: string; message_status?: string }[];
 }
 
+type CanSend = 'AVAILABLE' | 'LIMITED' | 'BLOCKED';
+
+/** Whether Meta lets a node send, covering the node and everything above it (WABA, business, app). */
+export interface HealthStatus {
+  can_send_message: CanSend;
+  entities: {
+    entity_type: string;
+    id: string;
+    can_send_message: CanSend;
+    errors?: { error_code: number; error_description: string; possible_solution?: string }[];
+  }[];
+}
+
 interface Page<T> {
   data: T[];
   paging?: { cursors?: { after?: string }; next?: string };
@@ -85,6 +98,11 @@ export class GraphClient {
 
   getPhoneNumber(phoneNumberId: string) {
     return this.request<PhoneNumberInfo>('GET', phoneNumberId, { fields: PHONE_FIELDS });
+  }
+
+  /** Sending status of a phone number, WABA or template, with Meta's reasons when it's limited or blocked. */
+  async getHealth(nodeId: string) {
+    return (await this.request<{ health_status: HealthStatus }>('GET', nodeId, { fields: 'health_status' })).health_status;
   }
 
   async listPhoneNumbers(wabaId: string) {

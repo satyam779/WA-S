@@ -1,11 +1,14 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { prisma } from '@wa/db';
 import { formatRupees } from '@wa/billing';
+import { META_ERROR } from '@wa/meta';
 import { ActionForm } from '@/components/action-form';
 import { EmbeddedSignup } from '@/components/embedded-signup';
 import { Badge, Field, PageHeader, Stat } from '@/components/ui';
 import { requireUser } from '@/lib/auth';
 import { env } from '@/lib/env';
+import { sendingBlockers } from '@/lib/health';
 import { connectAction } from './actions';
 
 export default async function HomePage() {
@@ -134,15 +137,9 @@ export default async function HomePage() {
               <span className="code">{waba.metaWabaId}</span>
             </Stat>
           </dl>
-          {waba.billingMode === 'DIRECT_META' && (
-            <p className="mt-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-200">
-              Make sure a payment method is added in{' '}
-              <a className="font-semibold underline" href="https://business.facebook.com/wa/manage/home/" target="_blank" rel="noreferrer">
-                WhatsApp Manager
-              </a>{' '}
-              → Payment settings. Meta charges its part of each message there; without it, messages fail.
-            </p>
-          )}
+          <Suspense fallback={null}>
+            <SendingBlockers phoneId={phone.id} />
+          </Suspense>
         </section>
       ) : (
         <section id="connect" className="card mt-6 scroll-mt-6 space-y-4">
@@ -176,5 +173,36 @@ export default async function HomePage() {
         </section>
       )}
     </>
+  );
+}
+
+/** Shown only while Meta blocks this number, with Meta's reasons. Streams in after the rest of the page. */
+async function SendingBlockers({ phoneId }: { phoneId: string }) {
+  const reasons = await sendingBlockers(phoneId).catch((err) => {
+    console.error('Health check failed', err);
+    return [];
+  });
+  if (!reasons.length) return null;
+  return (
+    <div className="mt-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-amber-200">
+      <p className="font-semibold">Meta is blocking messages from this number</p>
+      <ul className="mt-1 list-disc space-y-1 pl-5">
+        {reasons.map((r, i) => (
+          <li key={i}>
+            {r.code === META_ERROR.noPaymentMethod ? (
+              <>
+                Add a payment method in{' '}
+                <a className="font-semibold underline" href="https://business.facebook.com/wa/manage/home/" target="_blank" rel="noreferrer">
+                  WhatsApp Manager
+                </a>{' '}
+                → Payment settings. Meta charges its part of each message there.
+              </>
+            ) : (
+              r.text
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

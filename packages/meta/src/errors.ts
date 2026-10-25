@@ -43,4 +43,6 @@ export const META_ERROR = {
   paymentMissing: 131042,
   reEngagementWindow: 131047,
   templateNotFound: 132001,
+  /** In health_status, not API errors: the account has no working payment method. */
+  noPaymentMethod: 141006,
 } as const;
