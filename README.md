@@ -80,7 +80,6 @@ Nothing else is needed in Supabase. Each production deploy applies migrations, w
 - **Embedded Signup:** add `your-domain` to the allowed domains.
 - **Meta app settings:** Privacy Policy URL `https://your-domain/privacy`, Terms URL `https://your-domain/terms`.
 - **Razorpay:** website `https://your-domain`. The privacy, terms and refund pages it asks for already exist.
-- **Background job:** schedule it every 5 minutes (see "Background job" below). Cart reminders and long campaigns need that.
 
 ### Free Supabase plan: stop the 7-day pause
 
@@ -111,18 +110,12 @@ Recharge: customers pay the credit plus 18% GST, and the wallet receives the cre
 - **Plans:** defined in `apps/web/src/lib/plans.ts` — Free, and Growth at ₹999/month. Upgrades are paid from the wallet. Renewals run in the background job; if the wallet can't pay, the account drops to Free.
 - **What Growth unlocks:** the **Online store** page (`apps/web/src/lib/store.ts`). Shopify and WooCommerce post order webhooks to `/api/integrations/{platform}/{token}`, and we send:
   - an order confirmation, or for cash on delivery a Confirm/Cancel question;
-  - shipped and delivered updates;
-  - for Shopify, an abandoned cart reminder after 1 hour, to shoppers who accepted marketing.
+  - shipped and delivered updates.
 - **Confirm/Cancel taps:** they update the order. See it under **Online store → Recent orders**, or through the API: `GET /api/v1/orders/{order_id}`.
 
 ## Background job
 
-`/api/cron/tick` renews plans, sends due cart reminders and continues campaigns. It needs `Authorization: Bearer $CRON_SECRET`.
-
-- On Vercel Hobby, `apps/web/vercel.json` runs it once a day. That's too slow for cart reminders.
-- Run it every 5 minutes instead, with either:
-  - Vercel Pro: set the schedule to `*/5 * * * *`.
-  - A free scheduler such as cron-job.org: call `https://your-domain/api/cron/tick` with the header above.
+Vercel runs `/api/cron/tick` once a day (`apps/web/vercel.json`), with `Authorization: Bearer $CRON_SECRET`. It renews plans and continues unfinished campaigns. In the 03:00 UTC hour it also cleans up old logs, expired logins and stale holds.
 
 ## Go-live checklist
 
@@ -143,7 +136,6 @@ When the app starts, its Vercel logs list any missing or wrong setting (look for
    - **Payment capture → Automatic**.
    - A webhook to `https://your-domain/api/webhooks/razorpay` for `order.paid` and `payment.captured`, with its secret in `RAZORPAY_WEBHOOK_SECRET`. This credits payments even when the buyer closes the page before it returns.
 4. **Resend:** verify your domain and set `EMAIL_FROM`, so password reset emails arrive.
-5. **Background job:** every 5 minutes (see "Background job").
-6. **GitHub:** add the `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` secrets for the keep-alive job.
-7. **Before real customers:** Supabase Pro (no pausing, daily backups) and Vercel Pro (required for commercial use).
-8. **After each deploy:** sign up, connect WhatsApp, send a test OTP and recharge ₹100. Check that `https://your-domain/api/health` returns `{"ok":true}`.
+5. **GitHub:** add the `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` secrets for the keep-alive job.
+6. **Before real customers:** Supabase Pro (no pausing, daily backups) and Vercel Pro (required for commercial use).
+7. **After each deploy:** sign up, connect WhatsApp, send a test OTP and recharge ₹100. Check that `https://your-domain/api/health` returns `{"ok":true}`.

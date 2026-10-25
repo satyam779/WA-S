@@ -8,7 +8,7 @@ export interface Plan {
   name: string;
   /** Rupees per month */
   price: string;
-  /** Shopify/WooCommerce messages, COD confirmation and cart reminders */
+  /** Shopify/WooCommerce messages and COD confirmation */
   storeAutomations: boolean;
   features: string[];
 }
@@ -27,7 +27,7 @@ export const PLANS: Plan[] = [
     name: 'Growth',
     price: '999',
     storeAutomations: true,
-    features: ['Everything in Free', 'Shopify and WooCommerce auto-messages', 'Cash-on-delivery confirmation', 'Abandoned cart reminders'],
+    features: ['Everything in Free', 'Shopify and WooCommerce auto-messages', 'Cash-on-delivery confirmation'],
   },
 ];
 

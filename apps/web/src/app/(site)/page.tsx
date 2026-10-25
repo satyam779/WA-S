@@ -17,7 +17,6 @@ const FEATURES = [
   { title: 'OTP and login codes', text: 'We create the code, send it and check it. Two API calls, nothing to build.' },
   { title: 'Order updates', text: 'Confirmed, shipped and delivered messages, sent straight from Shopify or WooCommerce. No code.' },
   { title: 'Cash-on-delivery check', text: 'Buyers confirm COD orders with one tap, so you stop shipping fake orders.' },
-  { title: 'Abandoned carts', text: 'Remind shoppers who left items in their cart and win back lost sales.' },
   { title: 'Promotions', text: 'Upload your contacts and send offers. People who reply STOP are removed automatically.' },
 ];
 
@@ -42,7 +41,7 @@ const FAQ = [
   },
   {
     q: 'Is there a monthly fee or contract?',
-    a: 'No contract. The Free plan has no monthly fee: you pay only for delivered messages. The Growth plan (₹999/month) adds Shopify and WooCommerce automation, cash-on-delivery confirmation and abandoned cart reminders.',
+    a: 'No contract. The Free plan has no monthly fee: you pay only for delivered messages. The Growth plan (₹999/month) adds Shopify and WooCommerce automation and cash-on-delivery confirmation.',
   },
   { q: 'Can people stop receiving promotions?', a: 'Yes. Anyone who replies STOP is removed from your promotion list automatically.' },
 ];
@@ -107,7 +106,7 @@ export default async function LandingPage() {
       <section id="features" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6">
         <h2 className="text-3xl font-bold text-slate-900">Everything your business needs to send</h2>
         <p className="mt-2 text-slate-600">Ready-made messages, approved by Meta and set up for you.</p>
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f) => (
             <div key={f.title} className="card">
               <h3 className="font-semibold text-slate-900">{f.title}</h3>
@@ -180,7 +179,7 @@ export default async function LandingPage() {
             </table>
           </div>
           <p className="mt-4 text-sm text-slate-600">
-            <b>Growth plan, ₹999/month:</b> Shopify and WooCommerce auto-messages, cash-on-delivery confirmation and abandoned cart reminders.
+            <b>Growth plan, ₹999/month:</b> Shopify and WooCommerce auto-messages and cash-on-delivery confirmation.
           </p>
           <p className="mt-3 text-xs text-slate-500">
             Per delivered message, excluding 18% GST. *Meta bills its fee to the payment method on your WhatsApp account; Meta sets and may

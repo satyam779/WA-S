@@ -6,9 +6,6 @@ import { planOf } from './plans';
 import { sendMessage } from './send';
 import { COD_CANCEL, COD_CONFIRM, LANGUAGE, useCase, variablesFor } from './use-cases';
 
-/** How long a Shopify checkout must sit unfinished before we send the cart reminder. */
-const CART_DELAY_MS = 60 * 60_000;
-
 export const PLATFORMS = ['shopify', 'woocommerce'] as const;
 
 /** An order as both stores describe it, reduced to what our messages need. */
@@ -115,10 +112,7 @@ async function askCod(orgId: string, source: string, order: StoreOrder & { phone
   return message;
 }
 
-async function onOrderPlaced(store: StoreConnection, order: StoreOrder, checkoutToken?: string) {
-  if (checkoutToken) {
-    await prisma.cartReminder.updateMany({ where: { orgId: store.orgId, checkoutId: checkoutToken, status: 'PENDING' }, data: { status: 'CANCELLED' } });
-  }
+async function onOrderPlaced(store: StoreConnection, order: StoreOrder) {
   const phone = order.phone ? parseMsisdn(order.phone)?.digits : undefined;
   if (!phone) return;
   const withPhone = { ...order, phone };
@@ -147,32 +141,6 @@ async function onDelivered(store: StoreConnection, fulfillment: any) {
   return send(store.orgId, 'order_delivered', phone, { name, order_id: number }, `${store.platform}:${externalId}:delivered`);
 }
 
-/** Shopify checkouts: remember unfinished ones from shoppers who accepted marketing; the cron sends the reminder. */
-async function onCheckout(store: StoreConnection, c: any) {
-  const checkoutId = String(c.token ?? c.id);
-  if (c.completed_at) {
-    await prisma.cartReminder.updateMany({ where: { orgId: store.orgId, checkoutId, status: 'PENDING' }, data: { status: 'CANCELLED' } });
-    return;
-  }
-  // Cart reminders are marketing messages, so they need the shopper's consent.
-  if (!store.cartReminder || !(c.buyer_accepts_marketing || c.buyer_accepts_sms_marketing)) return;
-  const phone = parseMsisdn(String(c.phone ?? c.shipping_address?.phone ?? c.billing_address?.phone ?? c.customer?.phone ?? ''))?.digits;
-  if (!phone || !c.abandoned_checkout_url) return;
-  await prisma.cartReminder.upsert({
-    where: { orgId_source_checkoutId: { orgId: store.orgId, source: store.platform, checkoutId } },
-    create: {
-      orgId: store.orgId,
-      source: store.platform,
-      checkoutId,
-      phone,
-      name: firstName(c.customer?.first_name, c.shipping_address?.first_name, c.billing_address?.first_name),
-      url: c.abandoned_checkout_url,
-      sendAt: new Date(Date.now() + CART_DELAY_MS),
-    },
-    update: { phone, url: c.abandoned_checkout_url },
-  });
-}
-
 /** Routes one store webhook. Shopify topics look like `orders/create`, WooCommerce ones like `order.updated`. */
 export async function handleStoreEvent(store: StoreConnection, topic: string, body: any) {
   await prisma.storeConnection.update({ where: { id: store.id }, data: { lastEventAt: new Date() } });
@@ -181,15 +149,12 @@ export async function handleStoreEvent(store: StoreConnection, topic: string, bo
 
   switch (topic) {
     case 'orders/create':
-      return onOrderPlaced(store, fromShopifyOrder(body), body.checkout_token ?? undefined);
+      return onOrderPlaced(store, fromShopifyOrder(body));
     case 'orders/fulfilled':
       return onShipped(store, fromShopifyOrder(body), shopifyTracking(body));
     case 'fulfillments/update':
       if (body.shipment_status === 'delivered') return onDelivered(store, body);
       return;
-    case 'checkouts/create':
-    case 'checkouts/update':
-      return onCheckout(store, body);
     case 'order.created':
     case 'order.updated':
       // "processing" = paid, or cash on delivery; "completed" = shipped.
@@ -223,25 +188,4 @@ export async function handleCodReply(orgId: string, contextId: string, from: str
       ? `Thank you! Your order ${order.number} is confirmed and will be shipped soon.`
       : `Your order ${order.number} has been cancelled. We hope to see you again soon.`;
   await sendMessage(orgId, { to: from, text: reply, idempotencyKey: `cod-reply:${order.id}` }).catch((err) => console.error('COD reply failed', err));
-}
-
-/** Cron: sends cart reminders that are due. */
-export async function sendDueCartReminders(limit = 50) {
-  const due = await prisma.cartReminder.findMany({
-    where: { status: 'PENDING', sendAt: { lte: new Date() } },
-    include: { org: true },
-    take: limit,
-  });
-  for (const r of due) {
-    // Claim it first so overlapping cron runs can't send twice.
-    const { count } = await prisma.cartReminder.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: 'SENT' } });
-    if (!count) continue;
-    try {
-      if (!planOf(r.org.plan).storeAutomations) throw new Error('Plan no longer includes store automations');
-      await send(r.orgId, 'cart_reminder', r.phone, { name: r.name ?? 'there', cart_link: r.url }, `cart:${r.id}`);
-    } catch (err) {
-      console.error('Cart reminder failed', err);
-      await prisma.cartReminder.update({ where: { id: r.id }, data: { status: 'FAILED' } });
-    }
-  }
 }

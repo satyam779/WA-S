@@ -1,13 +1,18 @@
-export const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME ?? 'WA Platform';
+// `||` rather than `??`: an empty variable (e.g. `APP_URL=`) means "not set", not "blank".
+export const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'WA Platform';
+
+/** APP_URL, else the Vercel production domain. Tolerates a missing "https://" so a typo can't break the build. */
+function siteUrl() {
+  const raw = (process.env.APP_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || 'localhost:3000').trim().replace(/\/+$/, '');
+  if (/^https?:\/\//.test(raw)) return raw;
+  return `${raw.startsWith('localhost') ? 'http' : 'https'}://${raw}`;
+}
 
 /** Public details used on the website, in emails and in the legal pages. */
 export const SITE = {
-  url: (
-    process.env.APP_URL ??
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000')
-  ).replace(/\/$/, ''),
-  company: process.env.COMPANY_NAME ?? BRAND,
-  supportEmail: process.env.SUPPORT_EMAIL ?? 'support@example.com',
+  url: siteUrl(),
+  company: process.env.COMPANY_NAME || BRAND,
+  supportEmail: process.env.SUPPORT_EMAIL || 'support@example.com',
 };
 
 function required(name: string): string {

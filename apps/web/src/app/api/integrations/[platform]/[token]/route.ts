@@ -1,7 +1,6 @@
-import { after } from 'next/server';
 import { prisma } from '@wa/db';
 import { decrypt } from '@/lib/crypto';
-import { handleStoreEvent, sendDueCartReminders, verifyStoreSignature } from '@/lib/store';
+import { handleStoreEvent, verifyStoreSignature } from '@/lib/store';
 
 /**
  * Order webhooks from a customer's store. The token in the URL identifies the store;
@@ -27,7 +26,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ platfor
     // Still 200: stores disable webhooks that keep failing. Send failures show in the message log.
     console.error(`Store webhook ${platform} ${topic} failed`, err);
   }
-  // Store traffic also drives cart reminders, so they go out on time even without a frequent cron.
-  after(() => sendDueCartReminders().catch((err) => console.error('Cart reminders failed', err)));
   return new Response('OK');
 }

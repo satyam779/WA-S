@@ -17,8 +17,6 @@ export interface UseCase {
   /** Positional {{n}} variables, in `fields` order. Meta rejects bodies that start or end with a variable. */
   body: string;
   fields: Field[];
-  /** Meta template category; UTILITY unless set */
-  category?: 'UTILITY' | 'MARKETING';
   /** Quick-reply buttons; taps come back as inbound messages */
   buttons?: string[];
 }
@@ -88,15 +86,6 @@ export const USE_CASES: UseCase[] = [
     fields: [name, orderId, { name: 'amount', label: 'Order total', example: '₹1,299' }],
     buttons: [COD_CONFIRM, COD_CANCEL],
   },
-  {
-    key: 'cart_reminder',
-    title: 'Abandoned cart reminder',
-    description: 'Reminds a shopper who left items in their cart.',
-    template: 'cart_reminder_v1',
-    category: 'MARKETING',
-    body: 'Hi {{1}}, you left something in your cart! Complete your order here: {{2}} We have saved your items for you.',
-    fields: [name, { name: 'cart_link', label: 'Cart link', example: 'https://yourstore.com/cart' }],
-  },
 ];
 
 export const useCase = (key: string) => USE_CASES.find((u) => u.key === key);
@@ -104,7 +93,7 @@ export const useCase = (key: string) => USE_CASES.find((u) => u.key === key);
 export const templateDefinition = (u: UseCase) => ({
   name: u.template,
   language: LANGUAGE,
-  category: u.category ?? 'UTILITY',
+  category: 'UTILITY',
   components: [
     { type: 'BODY', text: u.body, example: { body_text: [u.fields.map((f) => f.example)] } },
     ...(u.buttons ? [{ type: 'BUTTONS', buttons: u.buttons.map((text) => ({ type: 'QUICK_REPLY', text })) }] : []),

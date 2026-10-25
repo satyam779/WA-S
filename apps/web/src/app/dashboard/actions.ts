@@ -266,7 +266,6 @@ export async function saveStoreAction(_: ActionResult, data: FormData) {
         codConfirm: on('codConfirm'),
         sendShipped: on('sendShipped'),
         sendDelivered: on('sendDelivered'),
-        cartReminder: on('cartReminder'),
         ...(store.platform === 'shopify' && signingSecret ? { secret: encrypt(signingSecret) } : {}),
       },
     });

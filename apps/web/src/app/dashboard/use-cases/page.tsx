@@ -56,7 +56,7 @@ export default async function UseCasesPage() {
             <Badge value={status(u.template)} />
           </div>
           <p className="text-sm text-slate-500">
-            {u.description} {prices[u.category ?? 'UTILITY']}.
+            {u.description} {prices.UTILITY}.
           </p>
           <p className="rounded-lg bg-brand-50 p-3 text-sm ring-1 ring-brand-600/20">
             {u.body.replace(/\{\{(\d+)\}\}/g, (_, n) => `[${u.fields[Number(n) - 1]?.label}]`)}

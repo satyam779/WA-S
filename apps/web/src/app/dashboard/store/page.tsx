@@ -12,8 +12,8 @@ import { connectStoreAction, disconnectStoreAction, saveStoreAction } from '../a
 const STORES = {
   shopify: {
     title: 'Shopify',
-    blurb: 'Order confirmation, cash-on-delivery check, shipped and delivered updates, and abandoned cart reminders.',
-    events: 'Order creation, Order fulfillment, Fulfillment update, Checkout creation and Checkout update',
+    blurb: 'Order confirmation, cash-on-delivery check, and shipped and delivered updates.',
+    events: 'Order creation, Order fulfillment and Fulfillment update',
   },
   woocommerce: {
     title: 'WooCommerce',
@@ -27,7 +27,6 @@ const TOGGLES = [
   { name: 'codConfirm', label: 'Ask cash-on-delivery buyers to confirm' },
   { name: 'sendShipped', label: 'Order shipped' },
   { name: 'sendDelivered', label: 'Order delivered', only: 'shopify' },
-  { name: 'cartReminder', label: 'Abandoned cart reminder (1 hour, shoppers who accepted marketing)', only: 'shopify' },
 ] as const;
 
 function StoreCard({ platform, store, base }: { platform: keyof typeof STORES; store?: StoreConnection; base: string }) {

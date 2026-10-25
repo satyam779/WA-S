@@ -82,7 +82,6 @@ model Organization {
   payments  Payment[]
   stores        StoreConnection[]
   orders        Order[]
-  cartReminders CartReminder[]
 }
 
 model User {
@@ -355,7 +354,6 @@ model StoreConnection {
   codConfirm    Boolean      @default(true)
   sendShipped   Boolean      @default(true)
   sendDelivered Boolean      @default(true)
-  cartReminder  Boolean      @default(false)
   lastEventAt   DateTime?
   createdAt     DateTime     @default(now())
 
@@ -383,24 +381,6 @@ model Order {
 
   @@unique([orgId, source, externalId])
   @@index([orgId, createdAt])
-}
-
-model CartReminder {
-  id         String       @id @default(cuid())
-  orgId      String
-  org        Organization @relation(fields: [orgId], references: [id])
-  source     String
-  checkoutId String
-  phone      String
-  name       String?
-  url        String
-  sendAt     DateTime
-  /// PENDING | SENT | CANCELLED | FAILED
-  status     String       @default("PENDING")
-  createdAt  DateTime     @default(now())
-
-  @@unique([orgId, source, checkoutId])
-  @@index([status, sendAt])
 }
 
 model WebhookLog {
