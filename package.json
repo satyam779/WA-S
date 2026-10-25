@@ -1,0 +1,22 @@
+{
+  "name": "wa-platform",
+  "private": true,
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @wa/web dev",
+    "build": "pnpm --filter @wa/db generate && pnpm --filter @wa/web build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @wa/db generate",
+    "db:migrate": "pnpm --filter @wa/db migrate",
+    "db:seed": "pnpm --filter @wa/db seed"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

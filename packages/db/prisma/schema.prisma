@@ -1,0 +1,411 @@
+generator client {
+  provider      = "prisma-client-js"
+  // rhel-openssl-3.0.x is Vercel's runtime
+  binaryTargets   = ["native", "rhel-openssl-3.0.x"]
+  // Loads `include`d relations in one SQL query instead of one per relation
+  previewFeatures = ["relationJoins"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Supabase: transaction pooler (port 6543, ?pgbouncer=true) for the app,
+  // session pooler (port 5432) for migrations. Locally both point at Docker.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  DEVELOPER
+}
+
+enum BillingMode {
+  DIRECT_META
+  CREDIT_LINE
+}
+
+enum MessageCategory {
+  AUTHENTICATION
+  AUTHENTICATION_INTERNATIONAL
+  UTILITY
+  MARKETING
+  SERVICE
+}
+
+enum MessageStatus {
+  QUEUED
+  ACCEPTED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  RECEIVED
+}
+
+enum Direction {
+  OUT
+  IN
+}
+
+enum ReservationStatus {
+  HELD
+  CAPTURED
+  RELEASED
+}
+
+enum LedgerKind {
+  TOP_UP
+  PROMO
+  MESSAGE
+  ADJUSTMENT
+  SUBSCRIPTION
+}
+
+model Organization {
+  id        String       @id @default(cuid())
+  name      String
+  plan      String       @default("starter")
+  /// Next monthly charge for a paid plan
+  planRenewsAt  DateTime?
+  /// Cancelled plans stay active until planRenewsAt, then drop to the free plan
+  planCancelled Boolean   @default(false)
+  createdAt DateTime     @default(now())
+  users     User[]
+  apiKeys   ApiKey[]
+  wabas     Waba[]
+  messages  Message[]
+  otps      OtpRequest[]
+  wallet    Wallet?
+  contacts  Contact[]
+  campaigns Campaign[]
+  payments  Payment[]
+  stores        StoreConnection[]
+  orders        Order[]
+  cartReminders CartReminder[]
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  passwordHash String
+  role         Role         @default(OWNER)
+  orgId          String
+  org            Organization    @relation(fields: [orgId], references: [id])
+  sessions       Session[]
+  passwordResets PasswordReset[]
+  /// Consecutive wrong passwords; the account locks for 15 minutes at 10
+  failedLogins   Int             @default(0)
+  lockedUntil    DateTime?
+  createdAt      DateTime        @default(now())
+}
+
+model PasswordReset {
+  /// sha256 of the emailed token
+  id        String    @id
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Session {
+  /// sha256 of the cookie token
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model ApiKey {
+  id         String       @id @default(cuid())
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id])
+  name       String
+  /// First characters of the key, shown in the dashboard
+  prefix     String
+  hash       String       @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime     @default(now())
+}
+
+model Waba {
+  id           String        @id @default(cuid())
+  orgId        String
+  org          Organization  @relation(fields: [orgId], references: [id])
+  metaWabaId   String        @unique
+  name         String
+  currency     String?
+  reviewStatus String?
+  billingMode  BillingMode   @default(DIRECT_META)
+  /// Business token from Embedded Signup (AES-GCM); null = use our system user
+  accessToken  String?
+  connectedAt  DateTime      @default(now())
+  phoneNumbers PhoneNumber[]
+  templates    Template[]
+}
+
+model PhoneNumber {
+  id                 String    @id @default(cuid())
+  wabaId             String
+  waba               Waba      @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+  metaPhoneNumberId  String    @unique
+  displayPhoneNumber String
+  verifiedName       String?
+  qualityRating      String?
+  status             String?
+  messagingLimitTier String?
+  /// Two-step verification PIN we registered the number with (AES-GCM)
+  pinEncrypted       String?
+  updatedAt          DateTime  @updatedAt
+  messages           Message[]
+}
+
+model Template {
+  id             String   @id @default(cuid())
+  wabaId         String
+  waba           Waba     @relation(fields: [wabaId], references: [id], onDelete: Cascade)
+  metaTemplateId String   @unique
+  name           String
+  language       String
+  category       String
+  status         String
+  components     Json?
+  /// Ready-made use case this template serves (see apps/web/src/lib/use-cases.ts)
+  useCase        String?
+  updatedAt      DateTime @updatedAt
+
+  @@unique([wabaId, name, language])
+}
+
+model Message {
+  id                String            @id @default(cuid())
+  orgId             String
+  org               Organization      @relation(fields: [orgId], references: [id])
+  phoneNumberId     String
+  phoneNumber       PhoneNumber       @relation(fields: [phoneNumberId], references: [id])
+  direction         Direction         @default(OUT)
+  metaMessageId     String?           @unique
+  /// Recipient (OUT) or sender (IN), E.164 digits
+  contact           String
+  country           String?
+  type              String
+  templateName      String?
+  body              String?
+  category          MessageCategory?
+  status            MessageStatus     @default(QUEUED)
+  errorCode         Int?
+  errorMessage      String?
+  idempotencyKey    String?
+  reservedMicros    BigInt            @default(0)
+  reservationStatus ReservationStatus @default(RELEASED)
+  billedCategory    MessageCategory?
+  chargedMicros     BigInt?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  otp               OtpRequest?
+
+  @@unique([orgId, idempotencyKey])
+  @@index([orgId, createdAt])
+}
+
+model OtpRequest {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id])
+  messageId   String?      @unique
+  message     Message?     @relation(fields: [messageId], references: [id])
+  phone       String
+  codeHash    String
+  attempts    Int          @default(0)
+  maxAttempts Int          @default(5)
+  expiresAt   DateTime
+  verifiedAt  DateTime?
+  createdAt   DateTime     @default(now())
+
+  @@index([orgId, phone, createdAt])
+}
+
+model Wallet {
+  id             String        @id @default(cuid())
+  orgId          String        @unique
+  org            Organization  @relation(fields: [orgId], references: [id])
+  balanceMicros  BigInt        @default(0)
+  reservedMicros BigInt        @default(0)
+  updatedAt      DateTime      @updatedAt
+  entries        LedgerEntry[]
+}
+
+model LedgerEntry {
+  id        String     @id @default(cuid())
+  walletId  String
+  wallet    Wallet     @relation(fields: [walletId], references: [id])
+  kind      LedgerKind
+  debit     String
+  credit    String
+  amount    BigInt
+  messageId String?
+  note      String?
+  createdAt DateTime   @default(now())
+
+  @@index([walletId, createdAt])
+}
+
+model Rate {
+  id             String          @id @default(cuid())
+  plan           String
+  category       MessageCategory
+  /// ISO alpha-2 of the recipient, or '*'
+  country        String
+  billingMode    BillingMode
+  effectiveFrom  DateTime
+  priceMicros    BigInt
+  metaCostMicros BigInt          @default(0)
+
+  @@unique([plan, category, country, billingMode, effectiveFrom])
+}
+
+enum CampaignStatus {
+  SENDING
+  PAUSED
+  DONE
+}
+
+enum RecipientStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// People a business may send promotions to; imported with the business's opt-in confirmation.
+model Contact {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id])
+  /// E.164 digits
+  phone     String
+  name      String?
+  optedOut  Boolean      @default(false)
+  createdAt DateTime     @default(now())
+
+  @@unique([orgId, phone])
+}
+
+model Campaign {
+  id           String              @id @default(cuid())
+  orgId        String
+  org          Organization        @relation(fields: [orgId], references: [id])
+  name         String
+  templateName String
+  language     String
+  /// Body variable values; "{name}" is replaced with each contact's name
+  variables    Json
+  status       CampaignStatus      @default(SENDING)
+  total        Int
+  sent         Int                 @default(0)
+  failed       Int                 @default(0)
+  error        String?
+  createdAt    DateTime            @default(now())
+  finishedAt   DateTime?
+  recipients   CampaignRecipient[]
+}
+
+model CampaignRecipient {
+  id         String          @id @default(cuid())
+  campaignId String
+  campaign   Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  phone      String
+  name       String?
+  status     RecipientStatus @default(PENDING)
+  messageId  String?
+  error      String?
+
+  @@index([campaignId, status])
+}
+
+/// Razorpay wallet recharge; credited once, when the signed payment is verified.
+model Payment {
+  id                String       @id @default(cuid())
+  orgId             String
+  org               Organization @relation(fields: [orgId], references: [id])
+  razorpayOrderId   String       @unique
+  razorpayPaymentId String?      @unique
+  creditMicros      BigInt
+  gstMicros         BigInt
+  status            String       @default("CREATED")
+  createdAt         DateTime     @default(now())
+}
+
+/// An online store that posts order events to /api/integrations/{platform}/{token}
+model StoreConnection {
+  id            String       @id @default(cuid())
+  orgId         String
+  org           Organization @relation(fields: [orgId], references: [id])
+  /// shopify | woocommerce
+  platform      String
+  /// Secret part of the webhook URL
+  token         String       @unique
+  /// Signing secret (AES-GCM): ours for WooCommerce, pasted from Shopify (optional)
+  secret        String?
+  sendConfirmed Boolean      @default(true)
+  codConfirm    Boolean      @default(true)
+  sendShipped   Boolean      @default(true)
+  sendDelivered Boolean      @default(true)
+  cartReminder  Boolean      @default(false)
+  lastEventAt   DateTime?
+  createdAt     DateTime     @default(now())
+
+  @@unique([orgId, platform])
+}
+
+model Order {
+  id               String       @id @default(cuid())
+  orgId            String
+  org              Organization @relation(fields: [orgId], references: [id])
+  /// shopify | woocommerce | api
+  source           String
+  externalId       String
+  number           String
+  customerName     String?
+  phone            String
+  amount           String
+  cod              Boolean      @default(false)
+  /// PENDING | CONFIRMED | CANCELLED, for cash-on-delivery orders
+  codStatus        String?
+  /// Our Message id of the COD question; button replies point back to it
+  confirmMessageId String?      @unique
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([orgId, source, externalId])
+  @@index([orgId, createdAt])
+}
+
+model CartReminder {
+  id         String       @id @default(cuid())
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id])
+  source     String
+  checkoutId String
+  phone      String
+  name       String?
+  url        String
+  sendAt     DateTime
+  /// PENDING | SENT | CANCELLED | FAILED
+  status     String       @default("PENDING")
+  createdAt  DateTime     @default(now())
+
+  @@unique([orgId, source, checkoutId])
+  @@index([status, sendAt])
+}
+
+model WebhookLog {
+  id         String   @id @default(cuid())
+  payload    Json
+  error      String?
+  receivedAt DateTime @default(now())
+}

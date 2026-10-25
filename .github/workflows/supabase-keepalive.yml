@@ -1,0 +1,27 @@
+name: Keep Supabase awake
+
+# Free Supabase projects pause after 7 days without activity. Every 2 days this reads one row
+# through Supabase's Data API. Row level security returns nothing, but the query still reaches
+# the database, which counts as activity.
+#
+# Setup: GitHub repo → Settings → Secrets and variables → Actions → add
+#   SUPABASE_URL              e.g. https://<project-ref>.supabase.co
+#   SUPABASE_PUBLISHABLE_KEY  Supabase → Project Settings → API Keys → publishable key
+
+on:
+  schedule:
+    - cron: '17 3 */2 * *' # 03:17 UTC every 2 days
+  workflow_dispatch: # "Run workflow" button, for testing
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query the database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' "$SUPABASE_URL/rest/v1/Rate?select=id&limit=1" -H "apikey: $SUPABASE_KEY")
+          echo "Supabase answered HTTP $status"
+          test "$status" = 200

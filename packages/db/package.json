@@ -1,0 +1,25 @@
+{
+  "name": "@wa/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "dotenv -e ../../.env -- prisma migrate dev",
+    "migrate:apply": "dotenv -e ../../.env -- prisma migrate deploy",
+    "migrate:deploy": "prisma migrate deploy",
+    "seed:deploy": "tsx prisma/seed.ts",
+    "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.0"
+  },
+  "devDependencies": {
+    "@wa/billing": "workspace:*",
+    "dotenv-cli": "^8.0.0",
+    "prisma": "^6.16.0",
+    "tsx": "^4.20.0"
+  }
+}

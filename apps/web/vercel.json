@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["bom1"],
+  "buildCommand": "pnpm --filter @wa/db generate && if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm --filter @wa/db migrate:deploy && pnpm --filter @wa/db seed:deploy; fi && next build",
+  "crons": [{ "path": "/api/cron/tick", "schedule": "0 3 * * *" }]
+}
