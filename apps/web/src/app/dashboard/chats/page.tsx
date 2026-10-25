@@ -1,13 +1,20 @@
 import Link from 'next/link';
 import { prisma } from '@wa/db';
+import { OTP_TEMPLATE_NAME } from '@wa/meta';
 import { ActionForm } from '@/components/action-form';
 import { AutoRefresh } from '@/components/auto-refresh';
 import { Badge, PageHeader, formatTime } from '@/components/ui';
 import { requireUser } from '@/lib/auth';
+import { USE_CASES } from '@/lib/use-cases';
 import { replyAction } from '../actions';
 
 // WhatsApp allows free-form replies only within 24 hours of the customer's last message.
 const WINDOW_MS = 24 * 3600_000;
+
+const TEMPLATE_TITLES: Record<string, string> = Object.fromEntries([
+  [OTP_TEMPLATE_NAME, 'OTP code'],
+  ...USE_CASES.map((u) => [u.template, u.title]),
+]);
 
 export default async function ChatsPage({ searchParams }: { searchParams: Promise<{ with?: string }> }) {
   const { orgId } = await requireUser();
@@ -19,9 +26,8 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
     take: 50,
   });
   const contact = (await searchParams).with?.replace(/\D/g, '') || people[0]?.contact;
-  const thread = contact
-    ? (await prisma.message.findMany({ where: { orgId, contact }, orderBy: { createdAt: 'desc' }, take: 50 })).reverse()
-    : [];
+  // Newest first; the list below is column-reverse, so it shows oldest at the top and opens scrolled to the newest.
+  const thread = contact ? await prisma.message.findMany({ where: { orgId, contact }, orderBy: { createdAt: 'desc' }, take: 50 }) : [];
   const lastWrote = people.find((p) => p.contact === contact)?._max.createdAt;
   const canReply = Boolean(lastWrote && Date.now() - lastWrote.getTime() < WINDOW_MS);
 
@@ -48,14 +54,14 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
           </nav>
           <section className="card flex min-w-0 flex-col gap-4">
             <h2 className="text-lg font-bold">+{contact}</h2>
-            <ol className="flex max-h-[55vh] flex-col gap-2 overflow-y-auto rounded-lg bg-[#efeae2] p-4">
+            <ol className="flex max-h-[55vh] flex-col-reverse gap-2 overflow-y-auto rounded-lg bg-[#efeae2] p-4">
               {thread.map((m) => (
                 <li
                   key={m.id}
                   className={`max-w-[85%] rounded-lg px-3 py-2 text-sm shadow-sm ${m.direction === 'IN' ? 'self-start bg-white' : 'self-end bg-[#d9fdd3]'}`}
                 >
                   <p className="whitespace-pre-wrap break-words text-slate-900">
-                    {m.body ?? (m.templateName ? `Template: ${m.templateName}` : `[${m.type}]`)}
+                    {m.body ?? (m.templateName ? `Template: ${TEMPLATE_TITLES[m.templateName] ?? m.templateName}` : `[${m.type}]`)}
                   </p>
                   <p className="mt-1 flex items-center justify-end gap-2 text-[11px] text-slate-500">
                     {formatTime(m.createdAt)}
