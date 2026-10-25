@@ -9,7 +9,9 @@ import { Badge, Field, PageHeader, Stat } from '@/components/ui';
 import { requireUser } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { sendingBlockers } from '@/lib/health';
-import { connectAction } from './actions';
+import { planOf } from '@/lib/plans';
+import { priceFor } from '@/lib/wallet';
+import { connectAction, switchNumberAction } from './actions';
 
 export default async function HomePage() {
   const user = await requireUser();
@@ -19,11 +21,17 @@ export default async function HomePage() {
   monthStart.setHours(0, 0, 0, 0);
   const thisMonth = { orgId, direction: 'OUT' as const, createdAt: { gte: monthStart } };
 
-  const [waba, wallet, sent, delivered, spent, firstMessage, keys, payment] = await Promise.all([
+  const [waba, otherWabas, wallet, sent, delivered, spent, firstMessage, keys, payment] = await Promise.all([
     prisma.waba.findFirst({
       where: { orgId },
       orderBy: { connectedAt: 'desc' },
       include: { phoneNumbers: true, templates: { where: { useCase: { not: null } }, select: { status: true } } },
+    }),
+    prisma.waba.findMany({
+      where: { orgId },
+      orderBy: { connectedAt: 'desc' },
+      skip: 1,
+      include: { phoneNumbers: { take: 1, select: { displayPhoneNumber: true, verifiedName: true } } },
     }),
     prisma.wallet.findUniqueOrThrow({ where: { orgId } }),
     prisma.message.count({ where: thisMonth }),
@@ -36,6 +44,11 @@ export default async function HomePage() {
   const phone = waba?.phoneNumbers[0];
   const approved = waba?.templates.filter((t) => t.status === 'APPROVED').length ?? 0;
   const available = Number(wallet.balanceMicros - wallet.reservedMicros);
+  const otpPrice = await priceFor(user.org.plan, 'AUTHENTICATION', 'IN', waba?.billingMode ?? 'DIRECT_META').then(
+    (p) => Number(p.price),
+    () => 0,
+  );
+  const otpsLeft = otpPrice > 0 ? Math.floor(Math.max(available, 0) / otpPrice) : null;
 
   const steps = [
     { done: Boolean(phone), title: 'Connect your WhatsApp number', text: 'Log in with Facebook and verify your number. About 2 minutes.', href: '#connect', cta: 'Connect' },
@@ -95,6 +108,18 @@ export default async function HomePage() {
           <h2 className="text-lg font-bold">Wallet</h2>
           <p className="mt-3 text-3xl font-bold text-slate-900">{formatRupees(available)}</p>
           <p className="text-sm text-slate-500">available to spend</p>
+          <dl className="mt-5 space-y-2 border-t border-slate-100 pt-4 text-sm">
+            {otpsLeft !== null && (
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">Enough for about</dt>
+                <dd className="font-medium text-slate-900">{otpsLeft.toLocaleString('en-IN')} OTPs</dd>
+              </div>
+            )}
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Plan</dt>
+              <dd className="font-medium text-slate-900">{planOf(user.org.plan).name}</dd>
+            </div>
+          </dl>
           <Link href="/dashboard/wallet" className="btn mt-auto">
             Recharge
           </Link>
@@ -129,7 +154,13 @@ export default async function HomePage() {
             <Stat label="Quality">
               <Badge value={phone.qualityRating} />
             </Stat>
-            <Stat label="Daily limit">{phone.messagingLimitTier?.replace('TIER_', '') ?? 'N/A'}</Stat>
+            <Stat label="Daily limit">
+              {phone.messagingLimitTier === 'TIER_UNLIMITED'
+                ? 'Unlimited'
+                : phone.messagingLimitTier
+                  ? `${phone.messagingLimitTier.replace('TIER_', '')} people a day`
+                  : 'N/A'}
+            </Stat>
             <Stat label="Ready-made messages">
               {approved} of {waba.templates.length} approved
             </Stat>
@@ -140,15 +171,30 @@ export default async function HomePage() {
           <Suspense fallback={null}>
             <SendingBlockers phoneId={phone.id} />
           </Suspense>
-          {signup && (
+          {(signup || otherWabas.length > 0) && (
             <details className="mt-5 rounded-lg bg-slate-50 p-4">
               <summary className="cursor-pointer text-sm font-semibold text-slate-700">Send from a different number</summary>
               <div className="mt-3 space-y-3">
-                <p className="text-sm text-slate-600">
-                  Log in with Facebook and choose the business, WhatsApp account and number. Messages then go out from that number. We set up the
-                  ready-made messages there too, and Meta reviews them again.
-                </p>
-                <EmbeddedSignup appId={process.env.META_APP_ID!} configId={process.env.META_ES_CONFIG_ID!} version={env.metaGraphVersion} />
+                {otherWabas.map((other) => (
+                  <div key={other.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                    <div>
+                      <p className="font-medium text-slate-900">{other.phoneNumbers[0]?.displayPhoneNumber ?? other.name}</p>
+                      <p className="text-sm text-slate-500">{other.phoneNumbers[0]?.verifiedName ?? other.name}</p>
+                    </div>
+                    <ActionForm action={switchNumberAction} submit="Use this number" buttonClass="btn-ghost py-1">
+                      <input type="hidden" name="wabaId" value={other.id} />
+                    </ActionForm>
+                  </div>
+                ))}
+                {signup && (
+                  <>
+                    <p className="text-sm text-slate-600">
+                      Or add a new one: log in with Facebook and choose the business, WhatsApp account and number. We set up the ready-made messages
+                      there too, and Meta reviews them again.
+                    </p>
+                    <EmbeddedSignup appId={process.env.META_APP_ID!} configId={process.env.META_ES_CONFIG_ID!} version={env.metaGraphVersion} />
+                  </>
+                )}
               </div>
             </details>
           )}

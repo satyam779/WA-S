@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { prisma } from '@wa/db';
 import { formatRupees } from '@wa/billing';
 import { ActionForm } from '@/components/action-form';
@@ -37,7 +38,11 @@ export default async function MessagesPage() {
               <tr key={m.id}>
                 <td className="whitespace-nowrap">{formatTime(m.createdAt)}</td>
                 <td>{m.direction === 'OUT' ? 'Sent' : 'Received'}</td>
-                <td>+{m.contact}</td>
+                <td>
+                  <Link href={`/dashboard/chats?with=${m.contact}`} className="hover:underline" title="Open the chat with this number">
+                    +{m.contact}
+                  </Link>
+                </td>
                 <td className="max-w-xs truncate">{m.templateName ?? m.body ?? m.type}</td>
                 <td>
                   <Badge value={m.status} />

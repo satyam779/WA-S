@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const ICONS: Record<string, React.ReactNode> = {
   home: <path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z" />,
+  chat: <path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z" />,
   zap: <path d="M13 2 4 14h7l-1 8 9-12h-7z" />,
   megaphone: <path d="M3 10v4h4l6 4V6L7 10zm13-1a4 4 0 0 1 0 6" />,
   file: <path d="M14 3H6v18h12V7zm0 0v4h4M9 13h6m-6 4h6" />,
@@ -16,6 +17,7 @@ const ICONS: Record<string, React.ReactNode> = {
 
 const NAV = [
   { href: '/dashboard', label: 'Home', icon: 'home' },
+  { href: '/dashboard/chats', label: 'Chats', icon: 'chat' },
   { href: '/dashboard/use-cases', label: 'OTP & updates', icon: 'zap' },
   { href: '/dashboard/promotions', label: 'Promotions', icon: 'megaphone' },
   { href: '/dashboard/store', label: 'Online store', icon: 'bag' },

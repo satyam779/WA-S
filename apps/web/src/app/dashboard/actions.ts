@@ -66,6 +66,26 @@ export async function connectAction(_: ActionResult, data: FormData) {
   });
 }
 
+/** Every page and send uses the most recently connected account, so switching moves this one to the front. */
+export async function switchNumberAction(_: ActionResult, data: FormData) {
+  const { orgId } = await requireUser();
+  return attempt(async () => {
+    const { count } = await prisma.waba.updateMany({ where: { id: field(data, 'wabaId'), orgId }, data: { connectedAt: new Date() } });
+    if (!count) throw new ApiError(404, 'not_connected', 'That number is no longer connected');
+    return 'Messages now go out from this number.';
+  });
+}
+
+export async function replyAction(_: ActionResult, data: FormData) {
+  const { orgId } = await requireUser();
+  return attempt(async () => {
+    const text = field(data, 'text');
+    if (!text) throw new ApiError(400, 'empty_message', 'Type a message first');
+    await sendMessage(orgId, { to: field(data, 'to'), text: text.slice(0, 4096) });
+    return 'Sent';
+  });
+}
+
 export async function refreshStatus() {
   const { orgId } = await requireUser();
   const waba = await latestWaba(orgId);

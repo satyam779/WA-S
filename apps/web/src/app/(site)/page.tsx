@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { formatRupees } from '@wa/billing';
-import { env } from '@/lib/env';
+import { SITE, env } from '@/lib/env';
 import { META_PRICE_INR } from '@/lib/use-cases';
 import { priceFor } from '@/lib/wallet';
 
@@ -144,7 +144,7 @@ export default async function LandingPage() {
             <li>✓ Delivery status for every message</li>
           </ul>
         </div>
-        <pre className="overflow-x-auto rounded-xl bg-slate-900 p-5 text-xs leading-relaxed text-slate-100">{`curl -X POST https://your-domain/api/v1/notify/order_confirmed \\
+        <pre className="overflow-x-auto rounded-xl bg-slate-900 p-5 text-xs leading-relaxed text-slate-100">{`curl -X POST ${SITE.url}/api/v1/notify/order_confirmed \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -d '{"phone": "+919876543210",
        "name": "Rahul",

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { prisma } from '@wa/db';
 import { ActionForm } from '@/components/action-form';
 import { Badge, Field, PageHeader, formatTime } from '@/components/ui';
@@ -40,7 +41,12 @@ export default async function PromotionsPage() {
             </label>
             <label className="block">
               <span className="label">or upload a CSV file (phone, name)</span>
-              <input type="file" name="file" accept=".csv,.txt" className="text-sm" />
+              <input
+                type="file"
+                name="file"
+                accept=".csv,.txt"
+                className="text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+              />
             </label>
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" name="consent" className="mt-1" />
@@ -53,11 +59,17 @@ export default async function PromotionsPage() {
           <div>
             <h2 className="text-lg font-bold">2. Send a promotion</h2>
             <p className="text-sm text-slate-500">
-              {prices.MARKETING}. Goes to all contacts who haven’t opted out. Create promotion templates under Templates.
+              {prices.MARKETING}. Goes to all contacts who haven’t opted out.
             </p>
           </div>
           {templates.length === 0 ? (
-            <p className="text-sm text-slate-500">No approved promotion templates yet. Create one on the Templates page.</p>
+            <p className="text-sm text-slate-500">
+              No approved promotion templates yet.{' '}
+              <Link href="/dashboard/templates" className="link">
+                Create one on the Templates page
+              </Link>
+              ; Meta reviews it within 24 hours.
+            </p>
           ) : (
             <ActionForm action={createCampaignAction} submit="Send now" className="space-y-3">
               <Field name="name" label="Campaign name" placeholder="Diwali sale" />

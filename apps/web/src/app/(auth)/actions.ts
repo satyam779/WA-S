@@ -6,7 +6,7 @@ import { rupees } from '@wa/billing';
 import type { ActionResult } from '@/components/action-form';
 import { createSession, destroySession, forgetLogins } from '@/lib/auth';
 import { hashPassword, randomToken, sha256, verifyPassword } from '@/lib/crypto';
-import { sendEmail } from '@/lib/email';
+import { emailConfigured, sendEmail } from '@/lib/email';
 import { BRAND, SITE, env } from '@/lib/env';
 import { creditWallet } from '@/lib/wallet';
 
@@ -82,6 +82,10 @@ export async function logoutAction() {
 }
 
 export async function requestResetAction(_: ActionResult, data: FormData): Promise<ActionResult> {
+  // Without an email service the link only reaches the server log, so don't promise an email.
+  if (process.env.VERCEL && !emailConfigured()) {
+    return { error: `Password reset emails aren’t set up yet. Email ${SITE.supportEmail} and we’ll help you get back in.` };
+  }
   const email = field(data, 'email').toLowerCase();
   const user = await prisma.user.findUnique({ where: { email } });
   const recent = user

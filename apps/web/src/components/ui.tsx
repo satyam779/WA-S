@@ -22,9 +22,13 @@ const TONES: Record<string, string> = {
   ACCEPTED: INFO, SENT: INFO, SENDING: INFO,
 };
 
+// Plain words for Meta's codes; anything else is shown in sentence case ("NOT_APPLICABLE" → "Not applicable").
+const LABELS: Record<string, string> = { PENDING: 'In review', GREEN: 'High', YELLOW: 'Medium', RED: 'Low', UNKNOWN: 'Not rated yet' };
+
 export function Badge({ value }: { value?: string | null }) {
-  const text = value || 'N/A';
-  return <span className={`badge ${TONES[text.toUpperCase()] ?? ''}`}>{text}</span>;
+  const key = (value || 'N/A').toUpperCase();
+  const text = LABELS[key] ?? (value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase().replace(/_/g, ' ') : 'N/A');
+  return <span className={`badge ${TONES[key] ?? ''}`}>{text}</span>;
 }
 
 export function Stat({ label, children }: { label: string; children: React.ReactNode }) {
