@@ -10,10 +10,10 @@ export function Field({ label, hint, ...props }: FieldProps) {
   );
 }
 
-const GOOD = 'bg-emerald-100 text-emerald-700';
-const WAIT = 'bg-amber-100 text-amber-700';
-const BAD = 'bg-red-100 text-red-700';
-const INFO = 'bg-sky-100 text-sky-700';
+const GOOD = 'bg-emerald-50 text-emerald-700';
+const WAIT = 'bg-amber-50 text-amber-700';
+const BAD = 'bg-red-50 text-red-700';
+const INFO = 'bg-sky-50 text-sky-700';
 const TONES: Record<string, string> = {
   GREEN: GOOD, APPROVED: GOOD, CONNECTED: GOOD, DELIVERED: GOOD, READ: GOOD, RECEIVED: GOOD, DONE: GOOD, ACTIVE: GOOD,
   CONFIRMED: GOOD,
@@ -28,24 +28,43 @@ const LABELS: Record<string, string> = { PENDING: 'In review', GREEN: 'High', YE
 export function Badge({ value }: { value?: string | null }) {
   const key = (value || 'N/A').toUpperCase();
   const text = LABELS[key] ?? (value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase().replace(/_/g, ' ') : 'N/A');
-  return <span className={`badge ${TONES[key] ?? ''}`}>{text}</span>;
+  const tone = TONES[key];
+  return (
+    <span className={`badge ${tone ?? ''}`}>
+      {tone && <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />}
+      {text}
+    </span>
+  );
 }
 
 export function Stat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <dt className="text-slate-500">{label}</dt>
-      <dd className="mt-1 font-medium">{children}</dd>
+      <dd className="mt-1 font-medium text-slate-900">{children}</dd>
     </div>
   );
 }
 
 export function PageHeader({ title, description, children }: { title: string; description?: string; children?: React.ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
         {description && <p className="mt-1 max-w-2xl text-sm text-slate-500">{description}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** A card's heading, with actions on the right. */
+export function SectionTitle({ title, description, children }: { title: string; description?: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
       </div>
       {children}
     </div>

@@ -7,15 +7,15 @@ const effectiveFrom = new Date('2026-01-01T00:00:00+05:30');
 // Our prices. DIRECT_META = platform fee only (Meta bills the seller's card).
 // CREDIT_LINE = Meta's India rate + markup, used once we are a Solution Partner.
 const rates: [MessageCategory, BillingMode, country: string, price: string, metaCost: string][] = [
-  ['AUTHENTICATION', 'DIRECT_META', '*', '0.05', '0'],
-  ['AUTHENTICATION_INTERNATIONAL', 'DIRECT_META', '*', '0.05', '0'],
-  ['UTILITY', 'DIRECT_META', '*', '0.05', '0'],
-  ['MARKETING', 'DIRECT_META', '*', '0.10', '0'],
+  ['AUTHENTICATION', 'DIRECT_META', '*', '0.10', '0'],
+  ['AUTHENTICATION_INTERNATIONAL', 'DIRECT_META', '*', '0.10', '0'],
+  ['UTILITY', 'DIRECT_META', '*', '0.10', '0'],
+  ['MARKETING', 'DIRECT_META', '*', '0.30', '0'],
   ['SERVICE', 'DIRECT_META', '*', '0', '0'],
-  ['AUTHENTICATION', 'CREDIT_LINE', 'IN', '0.15', '0.115'],
-  ['AUTHENTICATION_INTERNATIONAL', 'CREDIT_LINE', 'IN', '2.60', '2.4971'],
-  ['UTILITY', 'CREDIT_LINE', 'IN', '0.15', '0.115'],
-  ['MARKETING', 'CREDIT_LINE', 'IN', '0.95', '0.8631'],
+  ['AUTHENTICATION', 'CREDIT_LINE', 'IN', '0.215', '0.115'],
+  ['AUTHENTICATION_INTERNATIONAL', 'CREDIT_LINE', 'IN', '2.5971', '2.4971'],
+  ['UTILITY', 'CREDIT_LINE', 'IN', '0.215', '0.115'],
+  ['MARKETING', 'CREDIT_LINE', 'IN', '1.1631', '0.8631'],
   ['SERVICE', 'CREDIT_LINE', 'IN', '0.15', '0.115'],
 ];
 

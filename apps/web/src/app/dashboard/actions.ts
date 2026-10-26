@@ -8,10 +8,10 @@ import type { ActionResult } from '@/components/action-form';
 import { forgetLogins, requireUser } from '@/lib/auth';
 import { createCampaign, importContacts, processCampaign } from '@/lib/campaigns';
 import { connectWaba, refreshNumbers, setupTemplates, syncTemplates } from '@/lib/connect';
-import { encrypt, randomToken, sha256 } from '@/lib/crypto';
+import { decrypt, encrypt, randomToken, sha256 } from '@/lib/crypto';
 import { env } from '@/lib/env';
 import { ApiError } from '@/lib/errors';
-import { graphFor } from '@/lib/meta';
+import { graphFor, graphWithToken } from '@/lib/meta';
 import { sendOtp } from '@/lib/otp';
 import { confirmRecharge, createRechargeOrder } from '@/lib/payments';
 import { changePlan } from '@/lib/plans';
@@ -41,29 +41,78 @@ async function attempt(work: () => Promise<ActionResult | string>): Promise<Acti
   }
 }
 
-export async function completeSignupAction(input: { code: string; wabaId?: string; phoneNumberId?: string }) {
+export type ConnectedNumber = { display: string; name: string | null };
+export type SignupResult =
+  | { error: string }
+  | { connected: ConnectedNumber }
+  /** The customer finished Meta's window without picking a number: they choose one of the account's numbers next. */
+  | { pick: { sealed: string; numbers: (ConnectedNumber & { id: string })[] } };
+
+// How long a customer has to pick their number after Meta's window closes.
+const PICK_MS = 15 * 60_000;
+
+const errorText = (err: unknown) => {
+  if (err instanceof ApiError || err instanceof MetaApiError) return err.message;
+  console.error(err);
+  return 'Something went wrong. Please try again.';
+};
+
+async function connectAndDescribe(orgId: string, wabaId: string, phoneNumberId: string, options: { accessToken?: string; pin?: string }) {
+  const waba = await connectWaba(orgId, wabaId, phoneNumberId, options);
+  const phone = await prisma.phoneNumber.findUniqueOrThrow({ where: { metaPhoneNumberId: phoneNumberId } });
+  revalidatePath('/', 'layout');
+  return { display: phone.displayPhoneNumber, name: phone.verifiedName ?? waba.name };
+}
+
+/** Right after Meta's window: connect the number the customer chose there, or list the account's numbers to pick from. */
+export async function startSignupAction(input: { code: string; wabaId?: string; phoneNumberId?: string }): Promise<SignupResult> {
   const { orgId } = await requireUser();
-  return attempt(async () => {
-    if (!input.wabaId || !input.phoneNumberId) {
-      throw new ApiError(400, 'incomplete', 'Signup finished without a phone number. Please try again and add your number.');
-    }
+  try {
+    if (!input.wabaId) throw new ApiError(400, 'incomplete', 'Meta didn’t send back a WhatsApp account. Open the Facebook window again.');
+    // The code from Meta's window is valid for 30 seconds, so swap it for a token first.
     const accessToken = await exchangeSignupCode({
       appId: process.env.META_APP_ID ?? '',
       appSecret: env.metaAppSecret,
       code: input.code,
       version: env.metaGraphVersion,
     });
-    await connectWaba(orgId, input.wabaId, input.phoneNumberId, { accessToken });
-    return 'WhatsApp connected. Meta is reviewing your message templates; this can take up to 24 hours.';
-  });
+    if (input.phoneNumberId) return { connected: await connectAndDescribe(orgId, input.wabaId, input.phoneNumberId, { accessToken }) };
+    const numbers = await graphWithToken(accessToken).listPhoneNumbers(input.wabaId);
+    if (!numbers.length) throw new ApiError(400, 'no_numbers', 'This WhatsApp account has no phone number yet. Open the Facebook window again and add one.');
+    // Sealed with our key, so the browser can hold it for the next step but can't read or change it.
+    const sealed = encrypt(JSON.stringify({ orgId, wabaId: input.wabaId, accessToken, expires: Date.now() + PICK_MS }));
+    return { pick: { sealed, numbers: numbers.map((n) => ({ id: n.id, display: n.display_phone_number, name: n.verified_name ?? null })) } };
+  } catch (err) {
+    return { error: errorText(err) };
+  }
 }
 
-export async function connectAction(_: ActionResult, data: FormData) {
+export async function pickNumberAction(input: { sealed: string; phoneNumberId: string }): Promise<SignupResult> {
   const { orgId } = await requireUser();
-  return attempt(async () => {
-    await connectWaba(orgId, field(data, 'wabaId'), field(data, 'phoneNumberId'), { pin: field(data, 'pin') || undefined });
-    return 'WhatsApp connected';
-  });
+  try {
+    let pending: { orgId: string; wabaId: string; accessToken: string; expires: number } | undefined;
+    try {
+      pending = JSON.parse(decrypt(input.sealed));
+    } catch {
+      // Tampered or from an older key: treat it like an expired step.
+    }
+    if (!pending || pending.orgId !== orgId || pending.expires < Date.now()) {
+      throw new ApiError(400, 'expired', 'This step timed out. Open the Facebook window again.');
+    }
+    return { connected: await connectAndDescribe(orgId, pending.wabaId, input.phoneNumberId, { accessToken: pending.accessToken }) };
+  } catch (err) {
+    return { error: errorText(err) };
+  }
+}
+
+/** For customers who already run their own WhatsApp Business API account and shared it with us as a partner. */
+export async function connectWithIdsAction(input: { wabaId: string; phoneNumberId: string; pin?: string }): Promise<SignupResult> {
+  const { orgId } = await requireUser();
+  try {
+    return { connected: await connectAndDescribe(orgId, input.wabaId.trim(), input.phoneNumberId.trim(), { pin: input.pin?.trim() || undefined }) };
+  } catch (err) {
+    return { error: errorText(err) };
+  }
 }
 
 /** Every page and send uses the most recently connected account, so switching moves this one to the front. */

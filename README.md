@@ -51,6 +51,8 @@ Other commands:
 
    Until App Review approves the app, only people with a role on it can finish signup.
 
+   The dashboard's Connect wizard (`/dashboard/connect`) wraps the popup. Meta serves every popup as Embedded Signup v4 since 15 October 2026 (v2 and v3 are retired), so `extras` can't pre-fill business details. When a customer finishes without picking a number, the wizard lists the account's numbers to choose from.
+
 ## Deploy to production: Supabase + Vercel
 
 ### 1. Supabase (database)
@@ -104,11 +106,13 @@ Prices are rows in the `Rate` table, seeded from `packages/db/prisma/seed.ts` (r
 - `DIRECT_META`: our platform fee only. Meta bills the business.
 - `CREDIT_LINE`: Meta's cost plus our markup. Use this once we're a Solution Partner.
 
-Recharge: customers pay the credit plus 18% GST, and the wallet receives the credit.
+Recharge: customers pay exactly the amount they enter, and all of it goes into the wallet. We don't charge GST (`Payment.gstMicros` stays 0).
+
+Meta's own charges: the Wallet page shows what Meta charged this month, from the Graph API's `pricing_analytics` (cached for 15 minutes; Meta adds 18% GST for Indian accounts). As a Tech Provider we can't read a customer's Meta balance, card or invoices, so customers add funds or a card on Meta's Billing & payments page.
 
 ## Plans and online store automations
 
-- **Plans:** defined in `apps/web/src/lib/plans.ts` — Free, and Growth at ₹999/month. Upgrades are paid from the wallet. Renewals run in the background job; if the wallet can't pay, the account drops to Free.
+- **Plans:** defined in `apps/web/src/lib/plans.ts` — Free, and Growth at ₹199/month. Upgrades are paid from the wallet. Renewals run in the background job; if the wallet can't pay, the account drops to Free.
 - **What Growth unlocks:** the **Online store** page (`apps/web/src/lib/store.ts`). Shopify and WooCommerce post order webhooks to `/api/integrations/{platform}/{token}`, and we send:
   - an order confirmation, or for cash on delivery a Confirm/Cancel question;
   - shipped and delivered updates.

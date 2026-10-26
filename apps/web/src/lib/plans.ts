@@ -25,7 +25,7 @@ export const PLANS: Plan[] = [
   {
     key: 'growth',
     name: 'Growth',
-    price: '999',
+    price: '199',
     storeAutomations: true,
     features: ['Everything in Free', 'Shopify and WooCommerce auto-messages', 'Cash-on-delivery confirmation'],
   },

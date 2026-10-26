@@ -37,7 +37,7 @@ export default function TermsPage() {
       <h2>4. Prices and payment</h2>
       <p>
         You prepay into a wallet. We deduct our fee for each delivered message at the prices shown on our website; failed messages are not
-        charged. Prices exclude GST. We will give at least 15 days’ notice of price increases. While Meta bills you directly for its own
+        charged. We will give at least 15 days’ notice of price increases. While Meta bills you directly for its own
         message fees, those are between you and Meta.
       </p>
 

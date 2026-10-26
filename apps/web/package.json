@@ -16,6 +16,8 @@
     "@wa/db": "workspace:*",
     "@wa/meta": "workspace:*",
     "@wa/shared": "workspace:*",
+    "lucide-react": "^1.61.0",
+    "motion": "^14.6.0",
     "next": "^15.5.7",
     "react": "^19.2.1",
     "react-dom": "^19.2.1"

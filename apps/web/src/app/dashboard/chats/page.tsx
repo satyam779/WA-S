@@ -11,6 +11,19 @@ import { replyAction } from '../actions';
 // WhatsApp allows free-form replies only within 24 hours of the customer's last message.
 const WINDOW_MS = 24 * 3600_000;
 
+// Messages without text; we don't download media, so the business sees what kind it was.
+const MEDIA: Record<string, string> = {
+  revoke: 'Message deleted',
+  image: '📷 Photo',
+  video: '🎥 Video',
+  audio: '🎤 Voice message',
+  document: '📄 Document',
+  sticker: 'Sticker',
+  location: '📍 Location',
+  contacts: 'Contact card',
+  reaction: 'Reaction',
+};
+
 const TEMPLATE_TITLES: Record<string, string> = Object.fromEntries([
   [OTP_TEMPLATE_NAME, 'OTP code'],
   ...USE_CASES.map((u) => [u.template, u.title]),
@@ -61,7 +74,8 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
                   className={`max-w-[85%] rounded-lg px-3 py-2 text-sm shadow-sm ${m.direction === 'IN' ? 'self-start bg-white' : 'self-end bg-[#d9fdd3]'}`}
                 >
                   <p className="whitespace-pre-wrap break-words text-slate-900">
-                    {m.body ?? (m.templateName ? `Template: ${TEMPLATE_TITLES[m.templateName] ?? m.templateName}` : `[${m.type}]`)}
+                    {m.body ??
+                      (m.templateName ? `Template: ${TEMPLATE_TITLES[m.templateName] ?? m.templateName}` : (MEDIA[m.type] ?? `[${m.type}]`))}
                   </p>
                   <p className="mt-1 flex items-center justify-end gap-2 text-[11px] text-slate-500">
                     {formatTime(m.createdAt)}

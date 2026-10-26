@@ -1,59 +1,125 @@
 @import 'tailwindcss';
 
 @theme {
+  /* Set on <html> by next/font in the root layout. */
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: var(--font-instrument), ui-serif, Georgia, serif;
+
+  /* A quiet, slightly warm grey in place of Tailwind's blue-tinted slate, so every slate-* class uses it. */
+  --color-slate-50: #fafaf9;
+  --color-slate-100: #f3f3f1;
+  --color-slate-200: #e6e5e2;
+  --color-slate-300: #d4d3cf;
+  --color-slate-400: #a2a19b;
+  --color-slate-500: #76756e;
+  --color-slate-600: #57564f;
+  --color-slate-700: #3e3d38;
+  --color-slate-800: #282724;
+  --color-slate-900: #191816;
+  --color-slate-950: #0d0d0c;
+
   --color-brand-50: #ecfdf5;
   --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34c792;
+  --color-brand-500: #13a074;
   --color-brand-600: #0f7a5c;
   --color-brand-700: #0b5d47;
   --color-brand-800: #084a39;
   --color-brand-900: #063a2d;
+  --color-brand-950: #03241c;
+
+  /* WhatsApp's chat wallpaper, for message previews. */
+  --color-chat: #efeae2;
+
+  /* CSS-only entrance for content that must show before JavaScript loads. */
+  --animate-fade-up: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }
 
-html {
-  scroll-behavior: smooth;
-}
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
 
-body {
-  @apply bg-slate-50 text-slate-800 antialiased;
+  body {
+    @apply bg-white text-slate-900 antialiased;
+  }
+
+  ::selection {
+    @apply bg-brand-100 text-brand-900;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer components {
   .card {
-    @apply rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200;
+    @apply rounded-xl border border-slate-200 bg-white p-6;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.16),0_1px_2px_rgb(6_58_45/0.25)] transition-colors duration-150 hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300 transition-colors hover:bg-slate-50;
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .link {
-    @apply font-semibold text-brand-700 hover:underline;
+    @apply font-medium text-brand-700 underline decoration-brand-200 underline-offset-[3px] transition-colors hover:decoration-brand-700;
   }
   .input {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20;
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10;
   }
   .label {
-    @apply mb-1 block text-sm font-medium text-slate-700;
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
   }
   .badge {
-    @apply inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600;
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600;
   }
   .table {
     @apply w-full text-left text-sm;
   }
   .table th {
-    @apply border-b border-slate-200 px-3 py-2 font-medium text-slate-500;
+    @apply border-b border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-500;
   }
   .table td {
-    @apply border-b border-slate-100 px-3 py-2 align-top;
+    @apply border-b border-slate-100 px-3 py-3 align-top;
+  }
+  .table tbody tr {
+    @apply transition-colors hover:bg-slate-50;
+  }
+  .table tbody tr:last-child td {
+    @apply border-b-0;
   }
   .code {
-    @apply rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs;
+    @apply rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[0.85em] text-slate-800;
   }
   /* Long-form text: legal pages */
   .prose-page h2 {
-    @apply mt-8 mb-2 text-lg font-bold text-slate-900;
+    @apply mt-10 mb-2 text-lg font-semibold text-slate-900;
   }
   .prose-page p,
   .prose-page li {

@@ -59,6 +59,26 @@ export interface HealthStatus {
   }[];
 }
 
+/** One day's messages of one pricing category, as Meta bills them; `cost` is in the WABA's currency. */
+export interface PricingPoint {
+  start: number;
+  end: number;
+  pricing_category?: string;
+  volume?: number;
+  cost?: number;
+}
+
+/**
+ * What a Tech Provider can see of a WABA's billing: Meta's charges, who pays them and any sending problems.
+ * Payment methods and invoices are only visible to Solution Partners.
+ */
+export interface WabaBilling {
+  currency?: string;
+  owner_business_info?: { id: string; name: string };
+  health_status?: HealthStatus;
+  pricing: PricingPoint[];
+}
+
 interface Page<T> {
   data: T[];
   paging?: { cursors?: { after?: string }; next?: string };
@@ -103,6 +123,18 @@ export class GraphClient {
   /** Sending status of a phone number, WABA or template, with Meta's reasons when it's limited or blocked. */
   async getHealth(nodeId: string) {
     return (await this.request<{ health_status: HealthStatus }>('GET', nodeId, { fields: 'health_status' })).health_status;
+  }
+
+  /** Meta's charges between two moments, by day and category, with the paying business and health, in one call. */
+  async getBilling(wabaId: string, from: Date, to: Date): Promise<WabaBilling> {
+    const seconds = (d: Date) => Math.floor(d.getTime() / 1000);
+    const pricing = `pricing_analytics.start(${seconds(from)}).end(${seconds(to)}).granularity(DAILY).dimensions(["PRICING_CATEGORY"])`;
+    const { pricing_analytics, ...rest } = await this.request<Omit<WabaBilling, 'pricing'> & { pricing_analytics?: { data: { data_points?: PricingPoint[] }[] } }>(
+      'GET',
+      wabaId,
+      { fields: `currency,owner_business_info,health_status,${pricing}` },
+    );
+    return { ...rest, pricing: pricing_analytics?.data.flatMap((d) => d.data_points ?? []) ?? [] };
   }
 
   async listPhoneNumbers(wabaId: string) {

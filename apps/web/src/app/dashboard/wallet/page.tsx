@@ -1,13 +1,20 @@
+import Link from 'next/link';
+import { Suspense } from 'react';
+import { Check } from 'lucide-react';
 import { prisma } from '@wa/db';
 import { ACCOUNT, formatRupees } from '@wa/billing';
 import { ActionForm } from '@/components/action-form';
+import { MetaChargesSection } from '@/components/meta-charges';
+import { CountUp } from '@/components/motion';
+import { PriceTable } from '@/components/price-table';
 import { Recharge } from '@/components/recharge';
-import { PageHeader, formatTime } from '@/components/ui';
+import { PageHeader, SectionTitle, formatTime } from '@/components/ui';
 import { requireUser } from '@/lib/auth';
 import { BRAND } from '@/lib/env';
+import { metaBillingUrl } from '@/lib/meta-billing';
 import { rechargeEnabled } from '@/lib/payments';
 import { PLANS, planOf } from '@/lib/plans';
-import { priceLabels } from '@/lib/pricing';
+import { priceRows } from '@/lib/pricing';
 import { changePlanAction } from '../actions';
 
 const KIND: Record<string, string> = {
@@ -25,9 +32,9 @@ export default async function WalletPage() {
       where: { orgId: user.orgId },
       include: { entries: { orderBy: { createdAt: 'desc' }, take: 50 } },
     }),
-    prisma.waba.findFirst({ where: { orgId: user.orgId }, orderBy: { connectedAt: 'desc' }, select: { billingMode: true } }),
+    prisma.waba.findFirst({ where: { orgId: user.orgId }, orderBy: { connectedAt: 'desc' }, select: { id: true, billingMode: true } }),
   ]);
-  const prices = await priceLabels(user.org.plan, waba?.billingMode);
+  const prices = await priceRows(user.org.plan, waba?.billingMode);
   const walletAccount = ACCOUNT.wallet(wallet.id);
   const { org } = user;
   const current = planOf(org.plan);
@@ -37,62 +44,80 @@ export default async function WalletPage() {
     <>
       <PageHeader title="Wallet" description="Your prepaid balance. You’re only charged for messages that are delivered." />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="card space-y-4">
-          <div>
-            <p className="text-sm text-slate-500">Available</p>
-            <p className="text-4xl font-bold text-slate-900">{formatRupees(Number(wallet.balanceMicros - wallet.reservedMicros))}</p>
-            {wallet.reservedMicros > 0n && (
-              <p className="mt-1 text-sm text-slate-500">{formatRupees(Number(wallet.reservedMicros))} on hold for messages still being delivered</p>
-            )}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <section className="card lg:col-span-2">
+          <h2 className="text-sm text-slate-500">Available</h2>
+          <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums text-slate-900">
+            <CountUp value={Number(wallet.balanceMicros - wallet.reservedMicros)} format="rupees" />
+          </p>
+          {wallet.reservedMicros > 0n && (
+            <p className="mt-1 text-sm text-slate-500">{formatRupees(Number(wallet.reservedMicros))} on hold for messages still being delivered</p>
+          )}
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <p className="label">Add money</p>
+            <Recharge enabled={rechargeEnabled()} brand={BRAND} email={user.email} name={user.name} />
           </div>
-          <Recharge enabled={rechargeEnabled()} brand={BRAND} email={user.email} name={user.name} />
         </section>
 
-        <section className="card">
-          <h2 className="mb-3 text-lg font-bold">Prices</h2>
-          <dl className="space-y-3 text-sm">
-            {[
-              ['OTP and login codes', prices.AUTHENTICATION],
-              ['Order updates and reminders', prices.UTILITY],
-              ['Promotions', prices.MARKETING],
-            ].map(([label, price]) => (
-              <div key={label}>
-                <dt className="font-medium text-slate-900">{label}</dt>
-                <dd className="text-slate-600">{price}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="mt-4 text-xs text-slate-500">Prices exclude 18% GST. Failed messages are never charged.</p>
+        <section className="card space-y-4 lg:col-span-3">
+          <SectionTitle title="Prices" description="Per delivered message to an Indian number." />
+          <PriceTable rows={prices} />
+          <p className="text-sm text-slate-600">
+            {prices.some((r) => r.meta !== null) ? (
+              <>
+                Meta takes its fee from your account at Meta, so{' '}
+                <a href={metaBillingUrl()} target="_blank" rel="noreferrer" className="link">
+                  add funds or a card there
+                </a>{' '}
+                too.{' '}
+              </>
+            ) : (
+              'Everything comes from this wallet, Meta’s fee included. '
+            )}
+            <Link href="/dashboard/help#pay" className="link">
+              How paying works
+            </Link>
+          </p>
         </section>
       </div>
 
-      <section id="plan" className="card mt-6 scroll-mt-6">
-        <h2 className="text-lg font-bold">Plan</h2>
-        <p className="mb-4 text-sm text-slate-500">
-          You’re on {current.name}
-          {renewal && (org.planCancelled ? `, until ${renewal}` : `, renews ${renewal}`)}. Plans are paid from your wallet each month.
-        </p>
-        <div className="grid gap-4 md:grid-cols-2">
+      {waba && waba.billingMode !== 'CREDIT_LINE' && (
+        <Suspense fallback={<div className="mt-10 h-64 animate-pulse rounded-xl bg-slate-100" />}>
+          <MetaChargesSection wabaId={waba.id} />
+        </Suspense>
+      )}
+
+      <section id="plan" className="mt-10 scroll-mt-6">
+        <SectionTitle
+          title="Plan"
+          description={`You’re on ${current.name}${renewal ? (org.planCancelled ? `, until ${renewal}` : `, renews ${renewal}`) : ''}. Plans are paid from your wallet each month.`}
+        />
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           {PLANS.map((p) => {
             const isCurrent = p.key === current.key;
             const free = Number(p.price) === 0;
             return (
-              <div key={p.key} className={`flex flex-col rounded-xl p-5 ${isCurrent ? 'ring-2 ring-brand-600' : 'ring-1 ring-slate-200'}`}>
-                <div className="flex items-baseline justify-between">
-                  <h3 className="text-lg font-bold">{p.name}</h3>
-                  <p>
-                    <span className="text-2xl font-bold">₹{p.price}</span>
+              <div key={p.key} className={`card flex flex-col ${isCurrent ? 'border-slate-900' : ''}`}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="font-semibold text-slate-900">
+                    {p.name}
+                    {isCurrent && <span className="badge ml-2 align-middle">Current</span>}
+                  </h3>
+                  <p className="tabular-nums">
+                    <span className="text-2xl font-semibold tracking-tight">₹{p.price}</span>
                     <span className="text-sm text-slate-500">/month</span>
                   </p>
                 </div>
-                <ul className="my-4 flex-1 space-y-1 text-sm text-slate-600">
+                <ul className="my-5 flex-1 space-y-2 text-sm text-slate-600">
                   {p.features.map((f) => (
-                    <li key={f}>✓ {f}</li>
+                    <li key={f} className="flex gap-2">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" aria-hidden />
+                      {f}
+                    </li>
                   ))}
                 </ul>
                 {isCurrent && !org.planCancelled ? (
-                  <p className="text-sm font-semibold text-brand-700">Your current plan</p>
+                  <p className="text-sm text-slate-500">Your current plan</p>
                 ) : free && org.planCancelled ? (
                   <p className="text-sm text-slate-500">Starts {renewal}</p>
                 ) : (
@@ -110,16 +135,16 @@ export default async function WalletPage() {
         </div>
       </section>
 
-      <section className="card mt-6">
-        <h2 className="mb-4 text-lg font-bold">Transactions</h2>
-        <div className="overflow-x-auto">
+      <section className="mt-10">
+        <SectionTitle title="Transactions" description="Recharges, free credit and what each message cost." />
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
           <table className="table">
             <thead>
               <tr>
-                <th>Date</th>
+                <th className="pl-5">Date</th>
                 <th>Type</th>
                 <th>Details</th>
-                <th className="text-right">Amount</th>
+                <th className="pr-5 text-right">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -127,10 +152,10 @@ export default async function WalletPage() {
                 const incoming = entry.credit === walletAccount;
                 return (
                   <tr key={entry.id}>
-                    <td className="whitespace-nowrap">{formatTime(entry.createdAt)}</td>
-                    <td>{KIND[entry.kind] ?? entry.kind}</td>
+                    <td className="whitespace-nowrap pl-5 text-slate-500">{formatTime(entry.createdAt)}</td>
+                    <td className="text-slate-900">{KIND[entry.kind] ?? entry.kind}</td>
                     <td className="text-slate-500">{entry.note ?? (entry.messageId ? `Message ${entry.messageId.slice(-8)}` : '')}</td>
-                    <td className={`text-right font-medium ${incoming ? 'text-emerald-700' : 'text-slate-700'}`}>
+                    <td className={`pr-5 text-right font-mono text-[13px] ${incoming ? 'text-brand-700' : 'text-slate-700'}`}>
                       {incoming ? '+' : '−'}
                       {formatRupees(Number(entry.amount))}
                     </td>
@@ -139,7 +164,7 @@ export default async function WalletPage() {
               })}
             </tbody>
           </table>
-          {wallet.entries.length === 0 && <p className="py-6 text-center text-sm text-slate-500">No transactions yet.</p>}
+          {wallet.entries.length === 0 && <p className="py-10 text-center text-sm text-slate-500">No transactions yet.</p>}
         </div>
       </section>
     </>

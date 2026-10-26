@@ -106,7 +106,7 @@ export async function sendMessage(orgId: string, input: SendInput): Promise<Mess
     });
     await settleMessage(message.id, { kind: 'release' });
     if (err instanceof MetaApiError && err.code === META_ERROR.paymentMissing) {
-      throw new ApiError(402, 'meta_payment_missing', 'Meta couldn’t charge your WhatsApp account. Add a payment method in WhatsApp Manager → Payment settings.');
+      throw new ApiError(402, 'meta_payment_missing', 'Meta couldn’t charge your WhatsApp account. Add funds or a card on Meta’s Billing & payments page: business.facebook.com/billing_hub');
     }
     if (err instanceof MetaApiError && err.code === META_ERROR.reEngagementWindow) {
       throw new ApiError(422, 'window_closed', 'This customer last wrote more than 24 hours ago, so WhatsApp only allows approved templates now.');

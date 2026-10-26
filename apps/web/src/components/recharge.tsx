@@ -63,7 +63,7 @@ export function Recharge({ enabled, brand, email, name }: { enabled: boolean; br
           {pending ? 'Please wait…' : 'Recharge'}
         </button>
       </div>
-      <p className="text-xs text-slate-500">Amount in ₹, minimum ₹100. 18% GST is added at checkout.</p>
+      <p className="text-xs text-slate-500">Amount in ₹, minimum ₹100. You pay exactly this amount.</p>
       {result?.error && <p className="text-sm text-red-600">{result.error}</p>}
       {result?.ok && <p className="text-sm text-brand-700">{result.ok}</p>}
     </div>

@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { prisma } from '@wa/db';
-import { formatRupees, gstOn, rupees, toPaiseCeil } from '@wa/billing';
+import { formatRupees, rupees, toPaiseCeil } from '@wa/billing';
 import { ApiError } from './errors';
 import { creditWallet } from './wallet';
 
@@ -15,30 +15,29 @@ function keys() {
 
 const basicAuth = (id: string, secret: string) => `Basic ${Buffer.from(`${id}:${secret}`).toString('base64')}`;
 
-/** The customer pays the credit plus 18% GST; the wallet receives the credit. */
+/** The customer pays exactly the amount, and all of it goes into the wallet. We don't charge GST. */
 export async function createRechargeOrder(orgId: string, amountRupees: string) {
   const { id, secret } = keys();
   if (!/^\d{1,6}$/.test(amountRupees) || Number(amountRupees) < 100) {
     throw new ApiError(400, 'invalid_amount', 'Recharge at least ₹100, in whole rupees');
   }
   const credit = rupees(amountRupees);
-  const gst = gstOn(credit);
   const response = await fetch('https://api.razorpay.com/v1/orders', {
     method: 'POST',
     headers: {
       Authorization: basicAuth(id, secret),
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ amount: toPaiseCeil(credit + gst), currency: 'INR', notes: { orgId } }),
+    body: JSON.stringify({ amount: toPaiseCeil(credit), currency: 'INR', notes: { orgId } }),
   });
   const order = (await response.json()) as { id?: string; amount?: number; error?: { description?: string } };
   if (!response.ok || !order.id || !order.amount) {
     throw new ApiError(502, 'razorpay_error', order.error?.description ?? 'Could not start the payment');
   }
   await prisma.payment.create({
-    data: { orgId, razorpayOrderId: order.id, creditMicros: BigInt(credit), gstMicros: BigInt(gst) },
+    data: { orgId, razorpayOrderId: order.id, creditMicros: BigInt(credit), gstMicros: 0n },
   });
-  return { keyId: id, orderId: order.id, amount: order.amount, label: `${formatRupees(credit)} + ${formatRupees(gst)} GST` };
+  return { keyId: id, orderId: order.id, amount: order.amount, label: formatRupees(credit) };
 }
 
 const signatureMatches = (payload: string, signature: string | null | undefined, secret: string) => {

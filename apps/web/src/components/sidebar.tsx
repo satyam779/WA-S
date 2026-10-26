@@ -2,58 +2,89 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { motion } from 'motion/react';
+import {
+  CircleQuestionMark,
+  FileText,
+  House,
+  KeyRound,
+  List,
+  Megaphone,
+  MessageCircle,
+  ShoppingBag,
+  Wallet,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react';
+import { LogoMark } from './logo';
 
-const ICONS: Record<string, React.ReactNode> = {
-  home: <path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z" />,
-  chat: <path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z" />,
-  zap: <path d="M13 2 4 14h7l-1 8 9-12h-7z" />,
-  megaphone: <path d="M3 10v4h4l6 4V6L7 10zm13-1a4 4 0 0 1 0 6" />,
-  file: <path d="M14 3H6v18h12V7zm0 0v4h4M9 13h6m-6 4h6" />,
-  bag: <path d="M5 8h14l-1 13H6zm4 0V6a3 3 0 0 1 6 0v2" />,
-  list: <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" />,
-  wallet: <path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm0 0 3-3h11v3m-1 7h2" />,
-  key: <path d="M14.5 9.5 21 3m-3 3 2 2m-9.5 3.5a4.5 4.5 0 1 1-6.4 6.4 4.5 4.5 0 0 1 6.4-6.4z" />,
-};
-
-const NAV = [
-  { href: '/dashboard', label: 'Home', icon: 'home' },
-  { href: '/dashboard/chats', label: 'Chats', icon: 'chat' },
-  { href: '/dashboard/use-cases', label: 'OTP & updates', icon: 'zap' },
-  { href: '/dashboard/promotions', label: 'Promotions', icon: 'megaphone' },
-  { href: '/dashboard/store', label: 'Online store', icon: 'bag' },
-  { href: '/dashboard/templates', label: 'Templates', icon: 'file' },
-  { href: '/dashboard/messages', label: 'Message log', icon: 'list' },
-  { href: '/dashboard/wallet', label: 'Wallet', icon: 'wallet' },
-  { href: '/dashboard/developers', label: 'API keys', icon: 'key' },
+const NAV: { title: string; items: { href: string; label: string; icon: LucideIcon }[] }[] = [
+  {
+    title: 'Messaging',
+    items: [
+      { href: '/dashboard', label: 'Home', icon: House },
+      { href: '/dashboard/chats', label: 'Chats', icon: MessageCircle },
+      { href: '/dashboard/use-cases', label: 'OTP & updates', icon: Zap },
+      { href: '/dashboard/promotions', label: 'Promotions', icon: Megaphone },
+      { href: '/dashboard/store', label: 'Online store', icon: ShoppingBag },
+      { href: '/dashboard/templates', label: 'Templates', icon: FileText },
+      { href: '/dashboard/messages', label: 'Message log', icon: List },
+    ],
+  },
+  {
+    title: 'Account',
+    items: [
+      { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
+      { href: '/dashboard/developers', label: 'API keys', icon: KeyRound },
+      { href: '/dashboard/help', label: 'Help', icon: CircleQuestionMark },
+    ],
+  },
 ];
 
-export function Sidebar({ brand }: { brand: string }) {
+export function Sidebar({ brand, supportEmail }: { brand: string; supportEmail: string }) {
   const path = usePathname();
   return (
-    <aside className="bg-brand-800 text-white md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0">
-      <Link href="/dashboard" className="block px-6 py-5 text-lg font-bold">
+    <aside className="border-b border-slate-200 bg-slate-50 md:sticky md:top-0 md:flex md:h-screen md:w-60 md:shrink-0 md:flex-col md:border-b-0 md:border-r">
+      <Link href="/dashboard" className="flex h-14 items-center gap-2.5 px-5 text-[15px] font-semibold tracking-tight text-slate-900">
+        <LogoMark className="h-6 w-6" />
         {brand}
       </Link>
-      <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:overflow-visible">
-        {NAV.map((item) => {
-          const active = item.href === '/dashboard' ? path === item.href : path.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? 'page' : undefined}
-              className={`flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                active ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                {ICONS[item.icon]}
-              </svg>
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="flex gap-0.5 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:gap-6 md:overflow-y-auto md:pt-3">
+        {NAV.map((group) => (
+          <div key={group.title} className="flex gap-0.5 md:flex-col">
+            <p className="hidden px-2.5 pb-1.5 text-xs font-medium text-slate-400 md:block">{group.title}</p>
+            {group.items.map((item) => {
+              const active = item.href === '/dashboard' ? path === item.href : path.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`relative flex items-center gap-2.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm transition-colors ${
+                    active ? 'font-medium text-brand-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="nav-active"
+                      className="absolute inset-0 rounded-md border border-brand-100 bg-brand-50 shadow-[0_1px_2px_rgb(0_0_0/0.04)]"
+                      transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                    />
+                  )}
+                  <item.icon className={`relative h-4 w-4 shrink-0 ${active ? 'text-brand-600' : 'text-slate-400'}`} strokeWidth={1.8} aria-hidden />
+                  <span className="relative">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
+      <div className="hidden border-t border-slate-200 px-5 py-4 text-xs text-slate-500 md:block">
+        Need a hand?{' '}
+        <a href={`mailto:${supportEmail}`} className="link break-all">
+          {supportEmail}
+        </a>
+      </div>
     </aside>
   );
 }
